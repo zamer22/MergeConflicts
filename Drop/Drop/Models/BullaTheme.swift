@@ -5,7 +5,7 @@ enum BullaTheme {
 
     // MARK: Colors
     enum Colors {
-        static let brand = Color(hex: "#E8472A")
+        static let brand = Color(hex: "#F55F25")
         static let brandSoft = Color(hex: "#FFF1EC")
         static let live = Color(hex: "#16A34A")
         static let soon = Color(hex: "#B45309")
@@ -23,7 +23,7 @@ enum BullaTheme {
     // MARK: Gradients
     enum Gradients {
         static let brand = LinearGradient(
-            colors: [Color(hex: "#E8472A"), Color(hex: "#D45A1E")],
+            colors: [Color(hex: "#F55F25"), Color(hex: "#D45A1E")],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
         static let ai = LinearGradient(

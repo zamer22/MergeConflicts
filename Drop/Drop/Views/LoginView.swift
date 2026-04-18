@@ -4,67 +4,81 @@ struct LoginView: View {
     @EnvironmentObject var appState: AppState
 
     @State private var email = ""
-    @State private var username = ""
+    @State private var password = ""
     @State private var animateIn = false
     @State private var isLoading = false
 
     var canSubmit: Bool {
-        email.contains("@") && username.count >= 2
+        email.contains("@") && password.count >= 4
     }
 
     var body: some View {
         ZStack {
-            Color(hex: "#0A0A0F").ignoresSafeArea()
+            Color(UIColor.systemGroupedBackground).ignoresSafeArea()
 
             ZStack {
+                RoundedRectangle(cornerRadius: 40)
+                    .fill(
+                        LinearGradient(
+                            colors: [BullaTheme.Colors.brandSoft, .white],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 360, height: 360)
+                    .offset(x: -80, y: -220)
                 Circle()
                     .fill(RadialGradient(
-                        colors: [BullaTheme.Colors.brand.opacity(0.35), .clear],
-                        center: .center, startRadius: 0, endRadius: 220
-                    ))
-                    .frame(width: 440, height: 440)
-                    .offset(x: -60, y: -180)
-                Circle()
-                    .fill(RadialGradient(
-                        colors: [Color(hex: "#EC4899").opacity(0.2), .clear],
+                        colors: [Color(hex: "#FDE68A").opacity(0.35), .clear],
                         center: .center, startRadius: 0, endRadius: 180
                     ))
                     .frame(width: 360, height: 360)
-                    .offset(x: 100, y: 80)
+                    .offset(x: 120, y: 120)
             }
-            .blur(radius: 8)
+            .blur(radius: 18)
 
             VStack(spacing: 0) {
-                Spacer()
+                Spacer().frame(height: 148)
 
-                VStack(spacing: 12) {
+                VStack(spacing: 0) {
                     ZStack {
                         Circle()
                             .fill(BullaTheme.Gradients.brand)
                             .frame(width: 72, height: 72)
-                            .shadow(color: BullaTheme.Colors.brand.opacity(0.5), radius: 24, x: 0, y: 8)
+                            .shadow(color: BullaTheme.Colors.brand.opacity(0.24), radius: 18, x: 0, y: 8)
                         Text("◉")
                             .font(.system(size: 36))
                             .foregroundColor(.white)
                     }
+                    .padding(.bottom, 26)
+
                     Text("Drop")
                         .font(.system(size: 48, weight: .black, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(BullaTheme.Colors.ink)
                         .tracking(-1)
-                    Text("sal en menos de 5 minutos")
+                        .padding(.bottom, 18)
+
+                    Text("Tu ciudad esta pasando ahora mismo")
                         .font(BullaTheme.Font.body(15))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(BullaTheme.Colors.textSecondary)
                 }
                 .opacity(animateIn ? 1 : 0)
-                .offset(y: animateIn ? 0 : 20)
+                .offset(y: animateIn ? 36 : 56)
 
                 Spacer()
 
-                VStack(spacing: 16) {
-                    LoginField(text: $email, placeholder: "correo@ejemplo.com", icon: "envelope")
-                        .keyboardType(.emailAddress)
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Entrar")
+                            .font(BullaTheme.Font.heading(22))
+                            .foregroundColor(BullaTheme.Colors.ink)
+                            .font(BullaTheme.Font.body(13))
+                            .foregroundColor(BullaTheme.Colors.textSecondary)
+                    }
 
-                    LoginField(text: $username, placeholder: "nombre de usuario", icon: "person")
+                    LoginField(text: $email, placeholder: "correo@ejemplo.com", icon: "envelope", keyboardType: .emailAddress)
+
+                    LoginField(text: $password, placeholder: "contraseña", icon: "lock", isSecure: true)
 
                     Button(action: submit) {
                         ZStack {
@@ -87,9 +101,10 @@ struct LoginView: View {
                 .padding(24)
                 .background(
                     RoundedRectangle(cornerRadius: 28)
-                        .fill(.ultraThinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: 28).stroke(.white.opacity(0.1), lineWidth: 1))
+                        .fill(.white)
+                        .overlay(RoundedRectangle(cornerRadius: 28).stroke(BullaTheme.Colors.line, lineWidth: 1))
                 )
+                .shadow(color: .black.opacity(0.06), radius: 24, x: 0, y: 12)
                 .padding(.horizontal, 20)
                 .opacity(animateIn ? 1 : 0)
                 .offset(y: animateIn ? 0 : 40)
@@ -106,8 +121,16 @@ struct LoginView: View {
 
     private func submit() {
         isLoading = true
-        appState.login(email: email.lowercased().trimmingCharacters(in: .whitespaces),
-                       username: username.trimmingCharacters(in: .whitespaces))
+        let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let derivedUsername = normalizedEmail
+            .split(separator: "@")
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        appState.login(
+            email: normalizedEmail,
+            username: (derivedUsername?.isEmpty == false ? derivedUsername! : "dropuser")
+        )
     }
 }
 
@@ -117,26 +140,33 @@ private struct LoginField: View {
     let placeholder: String
     let icon: String
     var keyboardType: UIKeyboardType = .default
+    var isSecure: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 15))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(BullaTheme.Colors.textSecondary)
                 .frame(width: 20)
 
-            TextField("", text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.3)))
-                .foregroundColor(.white)
-                .font(BullaTheme.Font.body(15))
-                .keyboardType(keyboardType)
-                .autocapitalization(.none)
-                .autocorrectionDisabled()
+            Group {
+                if isSecure {
+                    SecureField("", text: $text, prompt: Text(placeholder).foregroundColor(BullaTheme.Colors.textTertiary))
+                } else {
+                    TextField("", text: $text, prompt: Text(placeholder).foregroundColor(BullaTheme.Colors.textTertiary))
+                        .keyboardType(keyboardType)
+                }
+            }
+            .foregroundColor(BullaTheme.Colors.ink)
+            .font(BullaTheme.Font.body(15))
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(.white.opacity(0.07))
+        .background(BullaTheme.Colors.chipBg)
         .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.1), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(BullaTheme.Colors.line, lineWidth: 1))
     }
 }
 
