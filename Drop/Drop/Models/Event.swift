@@ -63,13 +63,18 @@ enum EventStatus: Equatable {
 struct Event: Identifiable {
     let id: UUID
     var title: String
+    var description: String?
     var category: EventCategory
     var location: String
+    var venueAddress: String?
     var latitude: Double?
     var longitude: Double?
     var distanceMeters: Double
     var lat: Double
     var lng: Double
+    var creatorId: String?
+    var venueId: String?
+    var imageURL: String?
     var startTime: Date
     var endTime: Date?
     var isFree: Bool
@@ -85,11 +90,16 @@ struct Event: Identifiable {
     init(
         id: UUID = UUID(),
         title: String,
+        description: String? = nil,
         category: EventCategory,
         location: String,
+        venueAddress: String? = nil,
         distanceMeters: Double = 0,
         lat: Double = 0,
         lng: Double = 0,
+        creatorId: String? = nil,
+        venueId: String? = nil,
+        imageURL: String? = nil,
         startTime: Date = Date(),
         endTime: Date? = nil,
         isFree: Bool = true,
@@ -106,13 +116,18 @@ struct Event: Identifiable {
     ) {
         self.id = id
         self.title = title
+        self.description = description
         self.category = category
         self.location = location
+        self.venueAddress = venueAddress
         self.latitude = latitude
         self.longitude = longitude
         self.distanceMeters = distanceMeters
         self.lat = lat
         self.lng = lng
+        self.creatorId = creatorId
+        self.venueId = venueId
+        self.imageURL = imageURL
         self.startTime = startTime
         self.endTime = endTime
         self.isFree = isFree
@@ -130,12 +145,17 @@ struct Event: Identifiable {
     init(from dto: RallyDTO, userLocation: CLLocation?) {
         self.id = UUID(uuidString: dto.id) ?? UUID()
         self.title = dto.title
+        self.description = dto.description
         self.category = EventCategory.from(backendKey: dto.category ?? "otro")
         self.location = dto.venues?.name ?? dto.venues?.address ?? "Monterrey, NL"
+        self.venueAddress = dto.venues?.address
         self.lat = dto.lat
         self.lng = dto.lng
         self.latitude = dto.lat
         self.longitude = dto.lng
+        self.creatorId = dto.creatorId
+        self.venueId = dto.venueId
+        self.imageURL = dto.imageUrl
         self.startTime = dto.startsAt
         self.endTime = dto.expiresAt
         self.isFree = (dto.entryFee ?? 0) == 0

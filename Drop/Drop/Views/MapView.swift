@@ -801,7 +801,7 @@ struct MapBottomSheet: View {
                     .padding(.bottom, 12)
 
                 HStack(spacing: 12) {
-                    EventImagePlaceholder(category: event.category, height: 60)
+                    EventCoverImage(event: event, height: 60)
                         .frame(width: 60, height: 60)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
 

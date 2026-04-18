@@ -310,6 +310,40 @@ struct EventImagePlaceholder: View {
     }
 }
 
+struct EventCoverImage: View {
+    let event: Event
+    var height: CGFloat = 120
+
+    var body: some View {
+        if let imageURL = event.imageURL,
+           let url = URL(string: imageURL) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case let .success(image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .failure:
+                    EventImagePlaceholder(category: event.category, height: height)
+                case .empty:
+                    ZStack {
+                        EventImagePlaceholder(category: event.category, height: height)
+                        ProgressView()
+                            .tint(.white.opacity(0.9))
+                    }
+                @unknown default:
+                    EventImagePlaceholder(category: event.category, height: height)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .clipped()
+        } else {
+            EventImagePlaceholder(category: event.category, height: height)
+        }
+    }
+}
+
 // MARK: - Previews
 #Preview("Components") {
     ScrollView {

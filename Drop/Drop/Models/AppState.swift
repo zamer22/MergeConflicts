@@ -119,8 +119,8 @@ class AppState: ObservableObject {
         savedEventIds.contains(event.id.uuidString.lowercased())
     }
 
-    func toggleSave(_ event: Event) {
-        guard let userId = currentUserId else { return }
+    @discardableResult
+    func toggleSave(_ event: Event) -> Bool {
         let rallyId = event.id.uuidString.lowercased()
         let alreadySaved = savedEventIds.contains(rallyId)
 
@@ -130,7 +130,12 @@ class AppState: ObservableObject {
             savedEvents.removeAll { $0.id == event.id }
         } else {
             savedEventIds.insert(rallyId)
-            savedEvents.append(event)
+            savedEvents.removeAll { $0.id == event.id }
+            savedEvents.insert(event, at: 0)
+        }
+
+        guard let userId = currentUserId else {
+            return !alreadySaved
         }
 
         Task {
@@ -144,13 +149,23 @@ class AppState: ObservableObject {
                 // Revert on failure
                 if alreadySaved {
                     savedEventIds.insert(rallyId)
-                    savedEvents.append(event)
+                    savedEvents.removeAll { $0.id == event.id }
+                    savedEvents.insert(event, at: 0)
                 } else {
                     savedEventIds.remove(rallyId)
                     savedEvents.removeAll { $0.id == event.id }
                 }
             }
         }
+
+        return !alreadySaved
+    }
+
+    func saveFromDetailAndOpenSaved(_ event: Event) {
+        let didSave = toggleSave(event)
+        guard didSave else { return }
+        selectedTab = .saved
+        selectedEvent = nil
     }
 
     func joinEvent(_ event: Event) {

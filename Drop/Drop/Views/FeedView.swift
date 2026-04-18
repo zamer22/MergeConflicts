@@ -1,5 +1,13 @@
 import SwiftUI
 
+private struct FeedRecommendation {
+    let title: String
+    let body: String
+    let sourceLabel: String
+    let chips: [String]
+    let event: Event?
+}
+
 struct FeedView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedCategory: String? = nil
@@ -21,6 +29,49 @@ struct FeedView: View {
         ("mercado", "Mercado", "cart"),
         ("otro", "Otro", "plus"),
     ]
+
+    private var recommendation: FeedRecommendation {
+        let remoteReason = cleanedRemoteReason
+
+        if let preferredCategory = preferredCategoryKey,
+           let event = filteredEvents.first(where: { $0.category.backendKey == preferredCategory }) {
+            return FeedRecommendation(
+                title: "\(event.title) se parece mucho a lo que guardas",
+                body: remoteReason ?? "\(event.location) está alineado con tus guardados y se mueve bien para ahorita.",
+                sourceLabel: "basado en tus likes",
+                chips: recommendationChips(for: event, extra: ["Match \(event.category.rawValue)"]),
+                event: event
+            )
+        }
+
+        if let livePick = filteredEvents.first(where: { $0.status == .live }) {
+            return FeedRecommendation(
+                title: "Esto se está prendiendo ahorita",
+                body: remoteReason ?? "\(livePick.title) va en vivo en \(livePick.location) y pinta para ser tu mejor drop inmediato.",
+                sourceLabel: "por contexto en vivo",
+                chips: recommendationChips(for: livePick, extra: ["En vivo"]),
+                event: livePick
+            )
+        }
+
+        if let popularPick = filteredEvents.max(by: { recommendationScore(for: $0) < recommendationScore(for: $1) }) {
+            return FeedRecommendation(
+                title: "Populares cerca de ti",
+                body: remoteReason ?? "\(popularPick.title) trae buena respuesta cerca de ti, con mejor momentum para descubrir algo nuevo.",
+                sourceLabel: selectedCategory == nil ? "motor local" : "filtrado por \(popularPick.category.rawValue.lowercased())",
+                chips: recommendationChips(for: popularPick, extra: ["Top local"]),
+                event: popularPick
+            )
+        }
+
+        return FeedRecommendation(
+            title: "Ajustando tu radar",
+            body: "Todavía no encontramos una sugerencia fuerte con ese filtro. Cambia de categoría o vuelve a `Todos` para ver más opciones.",
+            sourceLabel: "motor local",
+            chips: ["Sin matches"],
+            event: nil
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -93,7 +144,11 @@ struct FeedView: View {
                 .padding(.bottom, 14)
 
                 // AI "Para ti"
-                AIRecommendationCard(text: appState.recommendationText)
+                AIRecommendationCard(recommendation: recommendation) {
+                    if let event = recommendation.event {
+                        appState.selectedEvent = event
+                    }
+                }
                     .padding(.horizontal, BullaTheme.Spacing.lg)
                     .padding(.bottom, 16)
 
@@ -144,8 +199,63 @@ struct FeedView: View {
         .safeAreaInset(edge: .bottom) {
             BullaTabBar(selected: $appState.selectedTab)
         }
-        .task { await appState.loadEvents() }
-        .refreshable { await appState.loadEvents() }
+        .task {
+            await appState.loadEvents()
+            await appState.loadRecommendations()
+        }
+        .refreshable {
+            await appState.loadEvents()
+            await appState.loadRecommendations()
+        }
+    }
+
+    private var cleanedRemoteReason: String? {
+        let trimmed = appState.recommendationText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == "Descubriendo eventos para ti..." || trimmed == "Eventos cerca de ti" {
+            return nil
+        }
+        return trimmed
+    }
+
+    private var preferredCategoryKey: String? {
+        if let selectedCategory {
+            return selectedCategory
+        }
+
+        let savedCategories = appState.savedEvents.map { $0.category.backendKey }
+        return savedCategories.reduce(into: [:]) { partialResult, key in
+            partialResult[key, default: 0] += 1
+        }
+        .max(by: { $0.value < $1.value })?
+        .key
+    }
+
+    private func recommendationScore(for event: Event) -> Double {
+        let liveBonus = event.status == .live ? 30.0 : 0.0
+        let freeBonus = event.isFree ? 8.0 : 0.0
+        let crowdScore = Double(event.attendeeCount) * 1.2
+        let distancePenalty = event.distanceMeters / 180
+        return liveBonus + freeBonus + crowdScore - distancePenalty
+    }
+
+    private func recommendationChips(for event: Event, extra: [String]) -> [String] {
+        var chips = extra
+
+        if event.isFree {
+            chips.append("Gratis")
+        } else if event.entryFee > 0 {
+            chips.append("$\(event.entryFee)")
+        }
+
+        if event.attendeeCount > 0 {
+            chips.append("+\(event.attendeeCount) van")
+        }
+
+        if event.distanceMeters > 0 {
+            chips.append("a \(Int(event.distanceMeters))m")
+        }
+
+        return Array(chips.prefix(3))
     }
 }
 
@@ -225,23 +335,56 @@ struct LiveStoryItem: View {
 }
 
 // MARK: - AI Recommendation Card
-struct AIRecommendationCard: View {
-    var text: String = "Descubriendo eventos para ti..."
+private struct AIRecommendationCard: View {
+    let recommendation: FeedRecommendation
+    var onTap: () -> Void = {}
 
     var body: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    AIBadge(label: "Para ti")
-                    Text("según tus gustos")
-                        .font(BullaTheme.Font.body(11))
-                        .foregroundColor(BullaTheme.Colors.textSecondary)
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 6) {
+                        AIBadge(label: "Para ti")
+                        Text(recommendation.sourceLabel)
+                            .font(BullaTheme.Font.body(11))
+                            .foregroundColor(BullaTheme.Colors.textSecondary)
+                    }
+
+                    Text(recommendation.title)
+                        .font(BullaTheme.Font.heading(17))
+                        .foregroundColor(BullaTheme.Colors.ink)
+
+                    Text(recommendation.body)
+                        .font(BullaTheme.Font.body(13))
+                        .foregroundColor(BullaTheme.Colors.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if !recommendation.chips.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(recommendation.chips, id: \.self) { chip in
+                                BullaChip(text: chip, style: .outline)
+                            }
+                        }
+                    }
+
+                    if let event = recommendation.event {
+                        HStack(spacing: 6) {
+                            Image(systemName: event.category.icon)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(BullaTheme.Colors.brand)
+                            Text("Abrir \(event.title)")
+                                .font(BullaTheme.Font.body(12, weight: .semibold))
+                                .foregroundColor(BullaTheme.Colors.brand)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(BullaTheme.Colors.brand)
+                        }
+                    }
                 }
-                Text(text)
-                    .font(BullaTheme.Font.body(13))
-                    .foregroundColor(BullaTheme.Colors.ink)
             }
         }
+        .buttonStyle(.plain)
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(BullaTheme.Gradients.aiCard)
@@ -279,7 +422,7 @@ struct FeedEventCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Image
             ZStack(alignment: .topLeading) {
-                EventImagePlaceholder(category: event.category, height: 130)
+                EventCoverImage(event: event, height: 130)
 
                 VStack {
                     HStack {
