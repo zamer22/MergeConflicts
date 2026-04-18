@@ -61,9 +61,7 @@ final class EventDetailViewModel: ObservableObject {
         switch aiResult {
         case let .success(summaryDTO):
             let cleanedSummary = summaryDTO.summary.trimmingCharacters(in: .whitespacesAndNewlines)
-            if cleanedSummary.isEmpty {
-                applyFallbackSummaryIfNeeded()
-            } else {
+            if !cleanedSummary.isEmpty {
                 aiSummary = cleanedSummary
                 aiTags = summaryDTO.tags ?? []
                 aiSummarySourceLabel = "Resumen IA"
@@ -145,7 +143,7 @@ final class EventDetailViewModel: ObservableObject {
         if !reviews.isEmpty {
             let topReviews = reviews.prefix(2).map(\.text).joined(separator: " ")
             if !topReviews.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return "\(crowdText) en \(event.location). La IA no respondió a tiempo, así que armamos un resumen local con reseñas: \(topReviews)"
+                return topReviews
             }
         }
 
@@ -154,7 +152,7 @@ final class EventDetailViewModel: ObservableObject {
             return "\(event.title) en \(event.location). \(crowdText) y por ahora destaca por \(tagText.lowercased())."
         }
 
-        return "\(event.title) en \(event.location). \(crowdText) y el resumen IA todavía no está disponible."
+        return "\(event.title) en \(event.location). \(crowdText)."
     }
 
     private func fallbackTags() -> [String] {
