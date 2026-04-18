@@ -24,10 +24,12 @@ class AppState: ObservableObject {
     @Published var selectedEvent: Event? = nil
 
     // Data
-    @Published var events: [Event] = Event.sampleEvents
+    @Published var events: [Event] = []
+    @Published var savedEvents: [Event] = []
+    @Published var isLoadingEvents: Bool = false
+    @Published var savedEventIds: Set<String> = []
     @Published var recommendationText: String = "Descubriendo eventos para ti..."
 
-    // Current User
     var currentUser: User? {
         if case .authenticated(let user) = authState { return user }
         return nil
@@ -37,7 +39,7 @@ class AppState: ObservableObject {
         UserDefaults.standard.string(forKey: "dropUserId")
     }
 
-    // MARK: - Auth Actions
+    // MARK: - Auth
 
     func login(email: String, password: String) {
         let username = email.components(separatedBy: "@").first ?? "usuario"
@@ -59,6 +61,7 @@ class AppState: ObservableObject {
                 }
             }
             await loadEvents()
+            await loadSaved()
             await loadRecommendations()
         }
     }
@@ -71,20 +74,28 @@ class AppState: ObservableObject {
         authState = .unauthenticated
         isLoggedIn = false
         selectedTab = .map
-        events = Event.sampleEvents
+        events = []
+        savedEvents = []
+        savedEventIds = []
+        UserDefaults.standard.removeObject(forKey: "dropUserId")
     }
 
     // MARK: - Data Loading
 
     func loadEvents(category: String? = nil, search: String? = nil) async {
+        isLoadingEvents = true
         do {
-            let fetched = try await DropService.shared.fetchRallies(category: category, search: search)
-            if !fetched.isEmpty {
-                events = fetched
-            }
-        } catch {
-            // Mantiene los eventos de muestra si la API no responde
-        }
+            events = try await DropService.shared.fetchRallies(category: category, search: search)
+        } catch {}
+        isLoadingEvents = false
+    }
+
+    func loadSaved() async {
+        guard let userId = currentUserId else { return }
+        do {
+            savedEvents = try await DropService.shared.fetchSaved(userId: userId)
+            savedEventIds = Set(savedEvents.map { $0.id.uuidString.lowercased() })
+        } catch {}
     }
 
     func loadRecommendations() async {
@@ -99,6 +110,44 @@ class AppState: ObservableObject {
 
     // MARK: - Event Actions
 
+    func isSaved(_ event: Event) -> Bool {
+        savedEventIds.contains(event.id.uuidString.lowercased())
+    }
+
+    func toggleSave(_ event: Event) {
+        guard let userId = currentUserId else { return }
+        let rallyId = event.id.uuidString.lowercased()
+        let alreadySaved = savedEventIds.contains(rallyId)
+
+        // Optimistic update
+        if alreadySaved {
+            savedEventIds.remove(rallyId)
+            savedEvents.removeAll { $0.id == event.id }
+        } else {
+            savedEventIds.insert(rallyId)
+            savedEvents.append(event)
+        }
+
+        Task {
+            do {
+                if alreadySaved {
+                    try await DropService.shared.unsaveRally(rallyId: rallyId, userId: userId)
+                } else {
+                    try await DropService.shared.saveRally(rallyId: rallyId, userId: userId)
+                }
+            } catch {
+                // Revert on failure
+                if alreadySaved {
+                    savedEventIds.insert(rallyId)
+                    savedEvents.append(event)
+                } else {
+                    savedEventIds.remove(rallyId)
+                    savedEvents.removeAll { $0.id == event.id }
+                }
+            }
+        }
+    }
+
     func joinEvent(_ event: Event) {
         guard let userId = currentUserId else { return }
         Task {
@@ -109,13 +158,11 @@ class AppState: ObservableObject {
         }
     }
 
-    func saveEvent(_ event: Event) {
-        guard let userId = currentUserId else { return }
+    // Called after publishing a new event
+    func afterPublish() {
         Task {
-            try? await DropService.shared.saveRally(
-                rallyId: event.id.uuidString.lowercased(),
-                userId: userId
-            )
+            await loadEvents()
         }
+        selectedTab = .feed
     }
 }

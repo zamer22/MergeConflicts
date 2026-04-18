@@ -50,12 +50,12 @@ struct LoginView: View {
                             .font(.system(size: 36))
                             .foregroundColor(.white)
                     }
-                    Text("bulla")
+                    Text("Drop")
                         .font(.system(size: 48, weight: .black, design: .rounded))
                         .foregroundColor(.white)
                         .tracking(-1)
 
-                    Text("lo que pasa en tu ciudad")
+                    Text("sal en menos de 5 minutos")
                         .font(BullaTheme.Font.body(15))
                         .foregroundColor(.white.opacity(0.5))
                 }

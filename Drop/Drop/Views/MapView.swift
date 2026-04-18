@@ -7,15 +7,15 @@ struct MapView: View {
     @State private var showBottomSheet = true
     @State private var cameraPosition = MapCameraPosition.region(
         MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 19.4194, longitude: -99.1617),
-            span: MKCoordinateSpan(latitudeDelta: 0.025, longitudeDelta: 0.025)
+            center: CLLocationCoordinate2D(latitude: 25.6672, longitude: -100.3101),
+            span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)
         )
     )
 
     var body: some View {
         ZStack(alignment: .bottom) {
 
-            // Map
+            // Map — capa base, recibe todos los toques del centro
             Map(position: $cameraPosition) {
                 ForEach(appState.events) { event in
                     Annotation("", coordinate: eventCoordinate(event)) {
@@ -33,17 +33,15 @@ struct MapView: View {
             .mapStyle(.standard(elevation: .realistic))
             .ignoresSafeArea(edges: .top)
 
-            // Floating search + chips
-            VStack(spacing: 0) {
-                // Search bar
+            // Overlay superior — sólo ocupa el área de la barra de búsqueda
+            VStack {
                 VStack(spacing: 10) {
                     BullaSearchBar(placeholder: "Buscar eventos o lugares")
                         .padding(.horizontal, BullaTheme.Spacing.lg)
 
-                    // Time filter chips
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            BullaChip(text: "● Ahora", style: .live)
+                            BullaChip(text: "Ahora", style: .live)
                             BullaChip(text: "Pronto", style: .soon)
                             BullaChip(text: "Hoy", style: .outline)
                             BullaChip(text: "Finde", style: .outline)
@@ -53,49 +51,57 @@ struct MapView: View {
                     }
                 }
                 .padding(.top, 60)
+                .padding(.bottom, 12)
                 .background(
                     LinearGradient(
-                        colors: [.white.opacity(0.95), .white.opacity(0.8), .clear],
+                        colors: [.white.opacity(0.97), .white.opacity(0.85), .clear],
                         startPoint: .top, endPoint: .bottom
                     )
                 )
+                Spacer().allowsHitTesting(false)
+            }
 
+            // Badge de zona IA — esquina inferior derecha antes del sheet
+            VStack {
                 Spacer()
-
-                // AI zone badge
                 HStack {
                     Spacer()
-                    AIBadge(label: "Zona hot")
+                    AIBadge(label: "Zona activa")
                         .padding(.trailing, BullaTheme.Spacing.lg)
-                        .padding(.bottom, 8)
+                        .padding(.bottom, showBottomSheet ? 160 : 100)
                 }
+            }
+            .allowsHitTesting(false)
 
-                // Bottom sheet
-                if showBottomSheet, let event = selectedEvent ?? appState.events.first {
-                    MapBottomSheet(event: event) {
-                        appState.selectedEvent = event
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            // Bottom sheet del evento seleccionado
+            if showBottomSheet, let event = selectedEvent ?? appState.events.first {
+                MapBottomSheet(event: event) {
+                    appState.selectedEvent = event
                 }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.bottom, 82)
             }
 
             // Tab bar
             VStack(spacing: 0) {
                 Spacer()
                 BullaTabBar(selected: $appState.selectedTab)
+                    .ignoresSafeArea(edges: .bottom)
             }
-            .ignoresSafeArea(edges: .bottom)
         }
     }
 
     func eventCoordinate(_ event: Event) -> CLLocationCoordinate2D {
-        // Mock coordinates near Roma Norte CDMX
-        let base = CLLocationCoordinate2D(latitude: 19.4194, longitude: -99.1617)
-        let idx = appState.events.firstIndex(where: { $0.id == event.id }) ?? 0
-        return CLLocationCoordinate2D(
-            latitude: base.latitude + Double(idx) * 0.003,
-            longitude: base.longitude + Double(idx % 2 == 0 ? 1 : -1) * 0.004
-        )
+        // Use real coordinates from DTO if non-zero, else spread around Monterrey
+        guard event.lat != 0 && event.lng != 0 else {
+            let base = CLLocationCoordinate2D(latitude: 25.6672, longitude: -100.3101)
+            let idx = appState.events.firstIndex(where: { $0.id == event.id }) ?? 0
+            return CLLocationCoordinate2D(
+                latitude: base.latitude + Double(idx) * 0.003,
+                longitude: base.longitude + Double(idx % 2 == 0 ? 1 : -1) * 0.004
+            )
+        }
+        return CLLocationCoordinate2D(latitude: event.lat, longitude: event.lng)
     }
 }
 
@@ -106,11 +112,11 @@ struct EventPin: View {
 
     var pinColor: Color {
         switch event.category {
-        case .music: return Color(hex: "#22C55E")
+        case .music: return Color(hex: "#6D5FA0")
         case .fair, .market: return BullaTheme.Colors.brand
         case .art: return Color(hex: "#3B82F6")
-        case .food: return BullaTheme.Colors.soon
-        case .sport: return Color(hex: "#22C55E")
+        case .food: return Color(hex: "#B5874A")
+        case .sport: return BullaTheme.Colors.live
         default: return BullaTheme.Colors.brand
         }
     }
@@ -120,18 +126,17 @@ struct EventPin: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                // Pin shape
                 Circle()
                     .fill(pinColor)
                     .frame(width: size, height: size)
                     .overlay(Circle().stroke(.white, lineWidth: 2))
-                    .shadow(color: pinColor.opacity(0.4), radius: isSelected ? 8 : 4, x: 0, y: 3)
+                    .shadow(color: .black.opacity(0.2), radius: isSelected ? 8 : 4, x: 0, y: 3)
 
-                Text(event.category.icon)
-                    .font(.system(size: size * 0.45))
+                Image(systemName: event.category.icon)
+                    .font(.system(size: size * 0.38, weight: .medium))
+                    .foregroundColor(.white)
             }
 
-            // Point
             Triangle()
                 .fill(pinColor)
                 .frame(width: 10, height: 6)
@@ -161,7 +166,6 @@ struct MapBottomSheet: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 0) {
-                // Handle
                 RoundedRectangle(cornerRadius: 2.5)
                     .fill(BullaTheme.Colors.line)
                     .frame(width: 40, height: 4)
@@ -169,14 +173,13 @@ struct MapBottomSheet: View {
                     .padding(.bottom, 12)
 
                 HStack(spacing: 12) {
-                    // Image
                     EventImagePlaceholder(category: event.category, height: 60)
                         .frame(width: 60, height: 60)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            BullaChip(text: "● EN VIVO", style: .live)
+                            BullaChip(text: "En vivo", style: .live)
                             if event.isFree {
                                 BullaChip(text: "Gratis", style: .default)
                             }
@@ -187,9 +190,7 @@ struct MapBottomSheet: View {
                         HStack(spacing: 4) {
                             Image(systemName: "location.fill")
                                 .font(.system(size: 10))
-                            Text("a \(Int(event.distanceMeters))m")
-                            Text("·")
-                            Text("hasta 22:00")
+                            Text(event.distanceMeters > 0 ? "a \(Int(event.distanceMeters))m" : event.location)
                             Text("·")
                             Text("+\(event.attendeeCount) van")
                                 .fontWeight(.bold)
@@ -205,12 +206,11 @@ struct MapBottomSheet: View {
         }
         .buttonStyle(.plain)
         .background(
-            RoundedRectangle(cornerRadius: 24)
+            RoundedRectangle(cornerRadius: 20)
                 .fill(.white)
-                .shadow(color: .black.opacity(0.08), radius: 24, x: 0, y: -8)
+                .shadow(color: .black.opacity(0.08), radius: 20, x: 0, y: -4)
         )
         .padding(.horizontal, 8)
-        .padding(.bottom, 82)
     }
 }
 

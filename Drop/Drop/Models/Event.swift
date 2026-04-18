@@ -18,16 +18,16 @@ enum EventCategory: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .music: return "🎵"
-        case .fair: return "🎪"
-        case .art: return "🎨"
-        case .food: return "🍴"
-        case .sport: return "🏃"
-        case .market: return "🛒"
-        case .workshop: return "📚"
-        case .bar: return "🍺"
-        case .gym: return "💪"
-        case .other: return "＋"
+        case .music: return "music.note"
+        case .fair: return "sparkles"
+        case .art: return "paintpalette"
+        case .food: return "fork.knife"
+        case .sport: return "figure.run"
+        case .market: return "cart"
+        case .workshop: return "book.closed"
+        case .bar: return "wineglass"
+        case .gym: return "dumbbell"
+        case .other: return "plus"
         }
     }
 
@@ -66,9 +66,12 @@ struct Event: Identifiable {
     var category: EventCategory
     var location: String
     var distanceMeters: Double
+    var lat: Double
+    var lng: Double
     var startTime: Date
     var endTime: Date?
     var isFree: Bool
+    var entryFee: Int
     var tags: [String]
     var attendeeCount: Int
     var rating: Double
@@ -82,10 +85,13 @@ struct Event: Identifiable {
         title: String,
         category: EventCategory,
         location: String,
-        distanceMeters: Double,
+        distanceMeters: Double = 0,
+        lat: Double = 0,
+        lng: Double = 0,
         startTime: Date = Date(),
         endTime: Date? = nil,
         isFree: Bool = true,
+        entryFee: Int = 0,
         tags: [String] = [],
         attendeeCount: Int = 0,
         rating: Double = 0,
@@ -99,9 +105,12 @@ struct Event: Identifiable {
         self.category = category
         self.location = location
         self.distanceMeters = distanceMeters
+        self.lat = lat
+        self.lng = lng
         self.startTime = startTime
         self.endTime = endTime
         self.isFree = isFree
+        self.entryFee = entryFee
         self.tags = tags
         self.attendeeCount = attendeeCount
         self.rating = rating
@@ -116,10 +125,13 @@ struct Event: Identifiable {
         self.id = UUID(uuidString: dto.id) ?? UUID()
         self.title = dto.title
         self.category = EventCategory.from(backendKey: dto.category ?? "otro")
-        self.location = dto.venues?.name ?? dto.venues?.address ?? "Monterrey, MX"
+        self.location = dto.venues?.name ?? dto.venues?.address ?? "Monterrey, NL"
+        self.lat = dto.lat
+        self.lng = dto.lng
         self.startTime = dto.startsAt
         self.endTime = dto.expiresAt
         self.isFree = (dto.entryFee ?? 0) == 0
+        self.entryFee = dto.entryFee ?? 0
         self.tags = dto.tags ?? []
         self.attendeeCount = 0
         self.rating = 0

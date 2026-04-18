@@ -26,8 +26,8 @@ struct BullaChip: View {
         switch style {
         case .default: return BullaTheme.Colors.chipBg
         case .solid: return BullaTheme.Colors.ink
-        case .live: return BullaTheme.Colors.live
-        case .soon: return BullaTheme.Colors.soon
+        case .live: return Color(hex: "#DCFCE7")
+        case .soon: return Color(hex: "#FEF3C7")
         case .outline: return .white
         case .brand: return BullaTheme.Colors.brand
         }
@@ -35,7 +35,9 @@ struct BullaChip: View {
 
     var foreground: Color {
         switch style {
-        case .solid, .live, .soon, .brand: return .white
+        case .solid, .brand: return .white
+        case .live: return BullaTheme.Colors.live
+        case .soon: return BullaTheme.Colors.soon
         default: return BullaTheme.Colors.ink
         }
     }
@@ -51,7 +53,7 @@ struct AIBadge: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Text("✦")
+            Image(systemName: "sparkle")
                 .font(.system(size: 10))
             Text(label)
                 .font(BullaTheme.Font.body(11, weight: .semibold))
@@ -68,7 +70,7 @@ struct AIBadge: View {
 struct BullaAvatar: View {
     let initial: String
     var size: CGFloat = 32
-    var gradient: [Color] = [Color(hex: "#FFD8C6"), Color(hex: "#FF9A7A")]
+    var gradient: [Color] = [Color(hex: "#CBD5E1"), Color(hex: "#94A3B8")]
 
     var body: some View {
         Text(initial)
@@ -85,7 +87,7 @@ struct BullaAvatar: View {
 
 // MARK: - Search Bar
 struct BullaSearchBar: View {
-    var placeholder: String = "Buscar eventos…"
+    var placeholder: String = "Buscar eventos..."
 
     var body: some View {
         HStack(spacing: 10) {
@@ -125,7 +127,6 @@ struct BullaPrimaryButton: View {
                 .padding(.horizontal, isFullWidth ? 0 : 24)
                 .background(BullaTheme.Gradients.brand)
                 .clipShape(Capsule())
-                .shadow(color: BullaTheme.Colors.brand.opacity(0.4), radius: 16, x: 0, y: 6)
         }
     }
 }
@@ -163,7 +164,7 @@ struct BullaTabBar: View {
     var body: some View {
         HStack {
             TabBarItem(icon: "map", label: "Mapa", tab: .map, selected: $selected)
-            TabBarItem(icon: "magnifyingglass", label: "Descubrir", tab: .feed, selected: $selected)
+            TabBarItem(icon: "magnifyingglass.circle", label: "Descubrir", tab: .feed, selected: $selected)
 
             // FAB
             Button(action: { selected = .create }) {
@@ -171,7 +172,7 @@ struct BullaTabBar: View {
                     Circle()
                         .fill(BullaTheme.Gradients.brand)
                         .frame(width: 52, height: 52)
-                        .shadow(color: BullaTheme.Colors.brand.opacity(0.5), radius: 20, x: 0, y: 8)
+                        .shadow(color: BullaTheme.Colors.brand.opacity(0.3), radius: 12, x: 0, y: 4)
                     Image(systemName: "plus")
                         .font(.system(size: 22, weight: .light))
                         .foregroundColor(.white)
@@ -184,11 +185,12 @@ struct BullaTabBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
-        .padding(.bottom, 28)
+        .padding(.bottom, 8)
         .background(
             Rectangle()
-                .fill(.ultraThinMaterial)
+                .fill(.white.opacity(0.97))
                 .overlay(Rectangle().frame(height: 1).foregroundColor(BullaTheme.Colors.line), alignment: .top)
+                .ignoresSafeArea(edges: .bottom)
         )
     }
 }
@@ -209,7 +211,7 @@ private struct TabBarItem: View {
                 Text(label)
                     .font(BullaTheme.Font.body(10, weight: .medium))
             }
-            .foregroundColor(isActive ? BullaTheme.Colors.brand : BullaTheme.Colors.textTertiary)
+            .foregroundColor(isActive ? BullaTheme.Colors.brand : BullaTheme.Colors.textSecondary)
             .frame(maxWidth: .infinity)
         }
     }
@@ -222,10 +224,10 @@ struct LiveDot: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(BullaTheme.Colors.brand.opacity(0.3))
+                .fill(BullaTheme.Colors.live.opacity(0.3))
                 .frame(width: pulsing ? 14 : 8, height: pulsing ? 14 : 8)
             Circle()
-                .fill(BullaTheme.Colors.brand)
+                .fill(BullaTheme.Colors.live)
                 .frame(width: 6, height: 6)
         }
         .onAppear {
@@ -236,18 +238,20 @@ struct LiveDot: View {
     }
 }
 
-// MARK: - Image Placeholder (simulates hf-img)
+// MARK: - Image Placeholder
 struct EventImagePlaceholder: View {
     var category: EventCategory = .fair
     var height: CGFloat = 120
 
     var baseColor: Color {
         switch category {
-        case .music: return Color(hex: "#7C6FAA")
-        case .food: return Color(hex: "#D4A574")
-        case .art: return Color(hex: "#C87F7F")
-        case .sport: return Color(hex: "#22C55E").opacity(0.7)
-        default: return Color(hex: "#A8B89C")
+        case .music: return Color(hex: "#6D5FA0")
+        case .food: return Color(hex: "#B5874A")
+        case .art: return Color(hex: "#A06B6B")
+        case .sport: return Color(hex: "#3D7A56")
+        case .bar: return Color(hex: "#5C4A2A")
+        case .gym: return Color(hex: "#2D5A7A")
+        default: return Color(hex: "#7A8A78")
         }
     }
 
@@ -255,12 +259,12 @@ struct EventImagePlaceholder: View {
         ZStack {
             baseColor
             LinearGradient(
-                colors: [.white.opacity(0.3), .clear, .black.opacity(0.1)],
+                colors: [.white.opacity(0.15), .clear, .black.opacity(0.15)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
-            Text(category.icon)
-                .font(.system(size: height * 0.3))
-                .opacity(0.4)
+            Image(systemName: category.icon)
+                .font(.system(size: height * 0.25))
+                .foregroundColor(.white.opacity(0.35))
         }
         .frame(maxWidth: .infinity)
         .frame(height: height)
@@ -273,14 +277,14 @@ struct EventImagePlaceholder: View {
         VStack(spacing: 16) {
             HStack {
                 BullaChip(text: "Todos", style: .solid)
-                BullaChip(text: "● EN VIVO", style: .live)
+                BullaChip(text: "En vivo", style: .live)
                 BullaChip(text: "Pronto", style: .soon)
                 BullaChip(text: "Gratis", style: .outline)
             }
             AIBadge(label: "Para ti")
             HStack {
                 BullaAvatar(initial: "A")
-                BullaAvatar(initial: "M", gradient: [Color(hex: "#FDE68A"), Color(hex: "#F59E0B")])
+                BullaAvatar(initial: "M", gradient: [Color(hex: "#FDE68A"), Color(hex: "#B45309")])
                 BullaAvatar(initial: "L", gradient: [Color(hex: "#BFDBFE"), Color(hex: "#3B82F6")])
             }
             BullaSearchBar()

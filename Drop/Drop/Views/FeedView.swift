@@ -2,38 +2,49 @@ import SwiftUI
 
 struct FeedView: View {
     @EnvironmentObject var appState: AppState
+    @State private var selectedCategory: String? = nil
 
-    let liveStories: [(icon: String, color: Color, minutesAway: Int)] = [
-        ("🎵", Color(hex: "#7C6FAA"), 3),
-        ("🎪", BullaTheme.Colors.brand, 6),
-        ("🍴", Color(hex: "#D4A574"), 9),
-        ("🎨", Color(hex: "#C87F7F"), 12),
-        ("🏃", BullaTheme.Colors.live, 15),
+    var liveEvents: [Event] { appState.events.filter { $0.status == .live } }
+    var filteredEvents: [Event] {
+        guard let cat = selectedCategory else { return appState.events }
+        return appState.events.filter { $0.category.backendKey == cat }
+    }
+
+    let categories: [(key: String, label: String, icon: String)] = [
+        ("musica", "Música", "music.note"),
+        ("feria", "Feria", "sparkles"),
+        ("arte", "Arte", "paintpalette"),
+        ("comida", "Comida", "fork.knife"),
+        ("bar", "Bar", "wineglass"),
+        ("deporte", "Deporte", "figure.run"),
+        ("gym", "Gym", "dumbbell"),
+        ("mercado", "Mercado", "cart"),
+        ("otro", "Otro", "plus"),
     ]
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
 
-                    // Header
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Descubrir")
-                            .font(.system(size: 32, weight: .black, design: .rounded))
-                        HStack(spacing: 4) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 11))
-                                .foregroundColor(BullaTheme.Colors.brand)
-                            Text("Roma Norte, CDMX")
-                                .font(BullaTheme.Font.body(13))
-                                .foregroundColor(BullaTheme.Colors.textSecondary)
-                        }
+                // Header
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Descubrir")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                    HStack(spacing: 4) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(BullaTheme.Colors.brand)
+                        Text("Barrio Antiguo, Monterrey")
+                            .font(BullaTheme.Font.body(13))
+                            .foregroundColor(BullaTheme.Colors.textSecondary)
                     }
-                    .padding(.horizontal, BullaTheme.Spacing.lg)
-                    .padding(.top, 12)
-                    .padding(.bottom, 16)
+                }
+                .padding(.horizontal, BullaTheme.Spacing.lg)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
 
-                    // EN VIVO Stories
+                // EN VIVO Stories — from real data
+                if !liveEvents.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 6) {
                             LiveDot()
@@ -46,45 +57,73 @@ struct FeedView: View {
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
-                                ForEach(liveStories, id: \.minutesAway) { story in
-                                    LiveStoryItem(icon: story.icon, color: story.color, minutesAway: story.minutesAway)
+                                ForEach(liveEvents.prefix(6)) { event in
+                                    Button { appState.selectedEvent = event } label: {
+                                        LiveStoryItem(event: event)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, BullaTheme.Spacing.lg)
                         }
                     }
                     .padding(.bottom, 14)
+                }
 
-                    // Search
-                    BullaSearchBar()
-                        .padding(.horizontal, BullaTheme.Spacing.lg)
-                        .padding(.bottom, 12)
+                // Search
+                BullaSearchBar()
+                    .padding(.horizontal, BullaTheme.Spacing.lg)
+                    .padding(.bottom, 12)
 
-                    // Category chips
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            BullaChip(text: "Todos", style: .solid)
-                            BullaChip(text: "🎵 Música", style: .outline)
-                            BullaChip(text: "🎪 Ferias", style: .outline)
-                            BullaChip(text: "🎨 Arte", style: .outline)
-                            BullaChip(text: "🍴 Comida", style: .outline)
+                // Category chips
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        CategoryChip(label: "Todos", icon: nil, isSelected: selectedCategory == nil) {
+                            selectedCategory = nil
                         }
-                        .padding(.horizontal, BullaTheme.Spacing.lg)
+                        ForEach(categories, id: \.key) { cat in
+                            CategoryChip(label: cat.label, icon: cat.icon, isSelected: selectedCategory == cat.key) {
+                                selectedCategory = selectedCategory == cat.key ? nil : cat.key
+                            }
+                        }
                     }
-                    .padding(.bottom, 14)
+                    .padding(.horizontal, BullaTheme.Spacing.lg)
+                }
+                .padding(.bottom, 14)
 
-                    // AI "Para ti"
-                    AIRecommendationCard(text: appState.recommendationText)
-                        .padding(.horizontal, BullaTheme.Spacing.lg)
-                        .padding(.bottom, 16)
+                // AI "Para ti"
+                AIRecommendationCard(text: appState.recommendationText)
+                    .padding(.horizontal, BullaTheme.Spacing.lg)
+                    .padding(.bottom, 16)
 
-                    // Event cards
-                    Text("Cerca de ti")
+                // Event list
+                HStack {
+                    Text(selectedCategory == nil ? "Cerca de ti" : "Filtrado")
                         .font(BullaTheme.Font.heading(17))
-                        .padding(.horizontal, BullaTheme.Spacing.lg)
-                        .padding(.bottom, 10)
+                    Spacer()
+                    if appState.isLoadingEvents {
+                        ProgressView().scaleEffect(0.8)
+                    }
+                }
+                .padding(.horizontal, BullaTheme.Spacing.lg)
+                .padding(.bottom, 10)
 
-                    ForEach(appState.events) { event in
+                if filteredEvents.isEmpty && !appState.isLoadingEvents {
+                    VStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass.circle")
+                            .font(.system(size: 40))
+                            .foregroundColor(BullaTheme.Colors.textSecondary)
+                        Text("No hay eventos ahora mismo")
+                            .font(BullaTheme.Font.body(15))
+                            .foregroundColor(BullaTheme.Colors.textSecondary)
+                        Text("¡Crea el primero con el botón +!")
+                            .font(BullaTheme.Font.body(13))
+                            .foregroundColor(BullaTheme.Colors.textSecondary.opacity(0.7))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 40)
+                } else {
+                    ForEach(filteredEvents) { event in
                         Button {
                             appState.selectedEvent = event
                         } label: {
@@ -94,30 +133,68 @@ struct FeedView: View {
                         }
                         .buttonStyle(.plain)
                     }
-
-                    Spacer().frame(height: 90)
                 }
+
+                Spacer().frame(height: 90)
             }
-            .scrollIndicators(.hidden)
-            .background(Color(UIColor.systemGroupedBackground))
-            .overlay(alignment: .bottom) {
-                BullaTabBar(selected: $appState.selectedTab)
-            }
-            .navigationBarHidden(true)
         }
+        .scrollIndicators(.hidden)
+        .background(Color(UIColor.systemGroupedBackground))
+        .safeAreaInset(edge: .bottom) {
+            BullaTabBar(selected: $appState.selectedTab)
+        }
+        .task { await appState.loadEvents() }
+        .refreshable { await appState.loadEvents() }
     }
 }
 
-// MARK: - Live Story Item
+// MARK: - Category Chip (interactive)
+private struct CategoryChip: View {
+    let label: String
+    let icon: String?
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11))
+                }
+                Text(label)
+                    .font(BullaTheme.Font.body(12, weight: isSelected ? .bold : .medium))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(isSelected ? BullaTheme.Colors.brand : .white)
+            .foregroundColor(isSelected ? .white : BullaTheme.Colors.ink)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(isSelected ? Color.clear : BullaTheme.Colors.line, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(duration: 0.2), value: isSelected)
+    }
+}
+
+// MARK: - Live Story Item (from real event)
 struct LiveStoryItem: View {
-    let icon: String
-    let color: Color
-    let minutesAway: Int
+    let event: Event
+
+    var pinColor: Color {
+        switch event.category {
+        case .music: return Color(hex: "#6D5FA0")
+        case .food: return Color(hex: "#B5874A")
+        case .art: return Color(hex: "#A06B6B")
+        case .sport, .gym: return BullaTheme.Colors.live
+        case .bar: return Color(hex: "#5C3D11")
+        default: return BullaTheme.Colors.brand
+        }
+    }
 
     var body: some View {
         VStack(spacing: 4) {
             ZStack {
-                // Gradient ring
                 Circle()
                     .stroke(
                         AngularGradient(
@@ -129,16 +206,19 @@ struct LiveStoryItem: View {
                     .frame(width: 66, height: 66)
 
                 Circle()
-                    .fill(color)
+                    .fill(pinColor)
                     .frame(width: 58, height: 58)
                     .overlay(Circle().stroke(.white, lineWidth: 2))
 
-                Text(icon)
-                    .font(.system(size: 24))
+                Image(systemName: event.category.icon)
+                    .font(.system(size: 22))
+                    .foregroundColor(.white)
             }
-            Text("a \(minutesAway) min")
+            Text(event.location)
                 .font(BullaTheme.Font.body(10))
                 .foregroundColor(BullaTheme.Colors.textSecondary)
+                .lineLimit(1)
+                .frame(maxWidth: 66)
         }
     }
 }
@@ -180,7 +260,7 @@ struct FeedEventCard: View {
         switch event.status {
         case .live: return "AHORA"
         case .upcoming(let mins):
-            return mins < 60 ? "En \(mins)min" : "MAÑANA"
+            return mins < 60 ? "En \(mins)min" : "HOY"
         case .today: return "HOY"
         case .weekend: return "FINDE"
         }
@@ -209,18 +289,19 @@ struct FeedEventCard: View {
                         .padding(10)
                         Spacer()
                         Button {
-                            appState.saveEvent(event)
+                            appState.toggleSave(event)
                         } label: {
                             Circle()
                                 .fill(.white.opacity(0.9))
                                 .frame(width: 32, height: 32)
                                 .overlay(
-                                    Image(systemName: "heart")
+                                    Image(systemName: appState.isSaved(event) ? "heart.fill" : "heart")
                                         .font(.system(size: 14))
-                                        .foregroundColor(BullaTheme.Colors.ink)
+                                        .foregroundColor(appState.isSaved(event) ? BullaTheme.Colors.brand : BullaTheme.Colors.ink)
                                 )
                         }
                         .padding(10)
+                        .animation(.spring(duration: 0.2), value: appState.isSaved(event))
                     }
                     Spacer()
                 }
@@ -241,6 +322,15 @@ struct FeedEventCard: View {
                         BullaChip(text: tag, style: .default)
                     }
                     Spacer()
+                    if event.entryFee > 0 {
+                        Text("$\(event.entryFee)")
+                            .font(BullaTheme.Font.body(11, weight: .bold))
+                            .foregroundColor(BullaTheme.Colors.ink)
+                    } else {
+                        Text("Gratis")
+                            .font(BullaTheme.Font.body(11, weight: .bold))
+                            .foregroundColor(BullaTheme.Colors.live)
+                    }
                     HStack(spacing: 3) {
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 10))

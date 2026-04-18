@@ -1,17 +1,17 @@
 import SwiftUI
 
-// MARK: - Bulla Design Tokens
+// MARK: - Design Tokens
 enum BullaTheme {
 
     // MARK: Colors
     enum Colors {
-        static let brand = Color(hex: "#FF5A3C")
+        static let brand = Color(hex: "#E8472A")
         static let brandSoft = Color(hex: "#FFF1EC")
-        static let live = Color(hex: "#22C55E")
-        static let soon = Color(hex: "#F59E0B")
-        static let aiGradientStart = Color(hex: "#7C3AED")
-        static let aiGradientMid = Color(hex: "#EC4899")
-        static let aiGradientEnd = Color(hex: "#F59E0B")
+        static let live = Color(hex: "#16A34A")
+        static let soon = Color(hex: "#B45309")
+        static let aiGradientStart = Color(hex: "#312E81")
+        static let aiGradientMid = Color(hex: "#4338CA")
+        static let aiGradientEnd = Color(hex: "#6366F1")
         static let ink = Color(hex: "#0A0A0F")
         static let textSecondary = Color(hex: "#6B6B76")
         static let textTertiary = Color(hex: "#9AA0A6")
@@ -23,15 +23,15 @@ enum BullaTheme {
     // MARK: Gradients
     enum Gradients {
         static let brand = LinearGradient(
-            colors: [Color(hex: "#FF5A3C"), Color(hex: "#FF8A3C")],
+            colors: [Color(hex: "#E8472A"), Color(hex: "#D45A1E")],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
         static let ai = LinearGradient(
-            colors: [Color(hex: "#7C3AED"), Color(hex: "#EC4899"), Color(hex: "#F59E0B")],
+            colors: [Color(hex: "#312E81"), Color(hex: "#4338CA"), Color(hex: "#6366F1")],
             startPoint: .leading, endPoint: .trailing
         )
         static let aiCard = LinearGradient(
-            colors: [Color(hex: "#FFF5EF"), Color(hex: "#FEF3C7")],
+            colors: [Color(hex: "#EEF2FF"), Color(hex: "#F0F9FF")],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
     }
