@@ -316,14 +316,27 @@ struct LiveStoryItem: View {
                     )
                     .frame(width: 70, height: 70)
 
-                Circle()
-                    .fill(pinColor)
+                if let urlStr = event.imageURL, let url = URL(string: urlStr) {
+                    AsyncImage(url: url) { phase in
+                        if case .success(let img) = phase {
+                            img.resizable().scaledToFill()
+                        } else {
+                            Circle().fill(pinColor)
+                        }
+                    }
                     .frame(width: 60, height: 60)
+                    .clipShape(Circle())
+                    .overlay(Circle().fill(.black.opacity(0.35)))
                     .overlay(Circle().stroke(.white, lineWidth: 2))
-
-                Image(systemName: event.category.icon)
-                    .font(.system(size: 22))
-                    .foregroundColor(.white)
+                } else {
+                    Circle()
+                        .fill(pinColor)
+                        .frame(width: 60, height: 60)
+                        .overlay(Circle().stroke(.white, lineWidth: 2))
+                    Image(systemName: event.category.icon)
+                        .font(.system(size: 22))
+                        .foregroundColor(.white)
+                }
             }
             Text(event.location)
                 .font(BullaTheme.Font.body(10))
