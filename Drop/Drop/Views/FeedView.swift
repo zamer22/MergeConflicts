@@ -65,6 +65,7 @@ struct FeedView: View {
                                 }
                             }
                             .padding(.horizontal, BullaTheme.Spacing.lg)
+                            .padding(.vertical, 4)
                         }
                     }
                     .padding(.bottom, 14)
@@ -203,11 +204,11 @@ struct LiveStoryItem: View {
                         ),
                         lineWidth: 2.5
                     )
-                    .frame(width: 66, height: 66)
+                    .frame(width: 70, height: 70)
 
                 Circle()
                     .fill(pinColor)
-                    .frame(width: 58, height: 58)
+                    .frame(width: 60, height: 60)
                     .overlay(Circle().stroke(.white, lineWidth: 2))
 
                 Image(systemName: event.category.icon)
@@ -218,7 +219,7 @@ struct LiveStoryItem: View {
                 .font(BullaTheme.Font.body(10))
                 .foregroundColor(BullaTheme.Colors.textSecondary)
                 .lineLimit(1)
-                .frame(maxWidth: 66)
+                .frame(maxWidth: 70)
         }
     }
 }

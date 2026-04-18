@@ -96,7 +96,7 @@ struct MapView: View {
                 .padding(.horizontal, BullaTheme.Spacing.lg)
             }
         }
-        .padding(.top, 60)
+        .padding(.top, 10)
         .background(
             LinearGradient(
                 colors: [.white.opacity(0.95), .white.opacity(0.8), .clear],
@@ -134,7 +134,7 @@ struct MapView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .padding(.bottom, isHotZoneVisible ? 92 : 8)
+        .padding(.bottom, isHotZoneVisible ? 150 : 80)
     }
 
     func focus(on zone: HotZone) {
