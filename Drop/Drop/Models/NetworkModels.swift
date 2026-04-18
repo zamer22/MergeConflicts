@@ -8,7 +8,7 @@ final class APIClient {
     private init() {}
 
     // Cambia a tu URL de Render cuando lo despliegues
-    let baseURL = "http://localhost:8000"
+    let baseURL = "https://drop-api-2jtq.onrender.com"
 
     private func makeDecoder() -> JSONDecoder {
         let d = JSONDecoder()
