@@ -41,13 +41,11 @@ class AppState: ObservableObject {
 
     // MARK: - Auth
 
-    func login(email: String, password: String) {
-        let username = email.components(separatedBy: "@").first ?? "usuario"
+    func login(email: String, username: String) {
         authState = .authenticated(User(name: username, username: username))
         isLoggedIn = true
 
         Task { @MainActor in
-            // Siempre usar loginOrCreate — crea o devuelve el usuario existente por email
             if let dto = try? await DropService.shared.loginOrCreate(email: email, username: username) {
                 UserDefaults.standard.set(dto.id, forKey: "dropUserId")
                 authState = .authenticated(User(from: dto))
@@ -56,10 +54,6 @@ class AppState: ObservableObject {
             await loadSaved()
             await loadRecommendations()
         }
-    }
-
-    func loginWithGoogle() {
-        login(email: "demo@drop.app", password: "")
     }
 
     // Llamar una vez al arrancar para limpiar IDs corruptos
