@@ -26,6 +26,10 @@ class AppState: ObservableObject {
     // Data
     @Published var events: [Event] = Event.sampleEvents
     @Published var recommendationText: String = "Descubriendo eventos para ti..."
+    @Published var hotZones: [HotZone] = []
+    @Published var hotZoneSummary: String = "Analizando en qué zona suele prenderse la ciudad..."
+    @Published var hotZoneInsightSource: String = "Motor local"
+    @Published var isLoadingHotZones: Bool = false
 
     // Current User
     var currentUser: User? {
@@ -72,6 +76,9 @@ class AppState: ObservableObject {
         isLoggedIn = false
         selectedTab = .map
         events = Event.sampleEvents
+        hotZones = []
+        hotZoneSummary = "Analizando en qué zona suele prenderse la ciudad..."
+        hotZoneInsightSource = "Motor local"
     }
 
     // MARK: - Data Loading
@@ -85,6 +92,7 @@ class AppState: ObservableObject {
         } catch {
             // Mantiene los eventos de muestra si la API no responde
         }
+        await loadHotZones()
     }
 
     func loadRecommendations() async {
@@ -117,5 +125,37 @@ class AppState: ObservableObject {
                 userId: userId
             )
         }
+    }
+
+    func loadHotZones() async {
+        isLoadingHotZones = true
+        hotZoneInsightSource = "Motor local"
+
+        let history: [Event]
+        if let userId = currentUserId {
+            history = (try? await DropService.shared.fetchPast(userId: userId)) ?? []
+        } else {
+            history = []
+        }
+
+        var generatedZones = HotZoneEngine().generateHotZones(
+            currentEvents: events,
+            historicalEvents: history
+        )
+
+        if let firstZone = generatedZones.first {
+            if let aiInsight = await AppleHotZoneNarrator.shared.insight(for: firstZone) {
+                generatedZones[0].insight = aiInsight
+                hotZoneSummary = aiInsight
+                hotZoneInsightSource = "Apple Intelligence"
+            } else {
+                hotZoneSummary = firstZone.fallbackInsight
+            }
+        } else {
+            hotZoneSummary = "Todavía no hay suficiente historial para detectar una zona caliente."
+        }
+
+        hotZones = generatedZones
+        isLoadingHotZones = false
     }
 }
