@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from database import supabase
 from datetime import datetime
@@ -19,20 +19,55 @@ class CreateRallyBody(BaseModel):
     expires_at: datetime
     lat: float
     lng: float
+    category: Optional[str] = "otro"
+    tags: Optional[list[str]] = []
+    image_url: Optional[str] = None
 
 
 @router.get("/")
-def get_active_rallies():
+def get_active_rallies(
+    category: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),  # "live" | "soon" | None = todos
+):
     now = datetime.utcnow().isoformat()
-    res = (
+    q = (
         supabase.table("rallies")
         .select("*")
         .eq("status", "active")
         .gt("expires_at", now)
         .order("expires_at", desc=False)
-        .execute()
     )
-    return res.data
+    if category:
+        q = q.eq("category", category)
+    if search:
+        q = q.ilike("title", f"%{search}%")
+
+    res = q.execute()
+    rallies = res.data
+
+    if status == "live":
+        rallies = [r for r in rallies if r["starts_at"] <= now]
+    elif status == "soon":
+        rallies = [r for r in rallies if r["starts_at"] > now]
+
+    return rallies
+
+
+@router.get("/categories")
+def get_categories():
+    return [
+        {"key": "musica",   "label": "Música",   "icon": "🎵"},
+        {"key": "feria",    "label": "Feria",     "icon": "🎪"},
+        {"key": "arte",     "label": "Arte",      "icon": "🎨"},
+        {"key": "comida",   "label": "Comida",    "icon": "🍴"},
+        {"key": "deporte",  "label": "Deporte",   "icon": "🏃"},
+        {"key": "mercado",  "label": "Mercado",   "icon": "🛒"},
+        {"key": "taller",   "label": "Taller",    "icon": "📚"},
+        {"key": "bar",      "label": "Bar",       "icon": "🍺"},
+        {"key": "gym",      "label": "Gym",       "icon": "💪"},
+        {"key": "otro",     "label": "Otro",      "icon": "✨"},
+    ]
 
 
 @router.get("/{rally_id}")
@@ -62,3 +97,39 @@ def get_participants(rally_id: str):
         .execute()
     )
     return res.data
+
+
+@router.get("/{rally_id}/reviews")
+def get_reviews(rally_id: str):
+    res = (
+        supabase.table("reviews")
+        .select("*, users(username, avatar_url)")
+        .eq("rally_id", rally_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return res.data
+
+
+@router.get("/{rally_id}/stats")
+def get_rally_stats(rally_id: str):
+    participants = (
+        supabase.table("rally_participants")
+        .select("id", count="exact")
+        .eq("rally_id", rally_id)
+        .is_("cancelled_at", "null")
+        .execute()
+    )
+    reviews = (
+        supabase.table("reviews")
+        .select("stars")
+        .eq("rally_id", rally_id)
+        .execute()
+    )
+    stars = [r["stars"] for r in reviews.data]
+    avg = round(sum(stars) / len(stars), 1) if stars else None
+    return {
+        "participants": participants.count or 0,
+        "reviews_count": len(stars),
+        "avg_rating": avg,
+    }

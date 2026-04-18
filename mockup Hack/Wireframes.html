@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>App de eventos — Wireframes + Hi-Fi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Patrick+Hand&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+<link rel="stylesheet" href="hifi.css"/>
+<style>
+  .finals, .hifi-grid { max-width: 1500px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 48px 32px; justify-items: center; }
+  .final-card, .hifi-cell { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .final-card .lbl, .hifi-cell .title { font-family: 'Caveat', cursive; font-size: 30px; font-weight: 700; text-align: center; line-height: 1; }
+  .final-card .lbl .num { font-size: 20px; background: var(--accent); color: white; padding: 2px 12px; border-radius: 100px; border: 2px solid var(--ink); display: inline-block; margin-right: 6px; transform: rotate(-2deg); }
+  .final-card .note { font-size: 15px; color: var(--ink-2); text-align: center; max-width: 330px; line-height: 1.35; }
+  .section-switcher { max-width: 1500px; margin: 0 auto 32px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .sec-btn { font-family: 'Caveat', cursive; font-size: 26px; padding: 6px 20px; border: 2px solid var(--ink); background: var(--paper); border-radius: 28px; cursor: pointer; font-weight: 700; line-height: 1; }
+  .sec-btn.active { background: var(--ink); color: var(--paper); }
+  .sec-panel { display: none; }
+  .sec-panel.active { display: block; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>app de eventos · <span class="scribble-under" data-name>Bulla</span></h1>
+  <div class="sub">
+    Wireframes finales + mockups hi-fi para pantallas clave.
+  </div>
+  <div style="margin-top:12px;">
+    <span class="tag accent">5 pantallas</span>
+    <span class="tag">wireframe + hi-fi</span>
+    <a href="Wireframes v1.html" style="display:inline-block; font-family:'Caveat',cursive; font-size:20px; color:var(--ink-2); text-decoration:none; border:1.5px solid var(--ink); border-radius:100px; padding:2px 14px; background:var(--paper);">← exploración inicial</a>
+  </div>
+</div>
+
+<div class="section-switcher">
+  <button class="sec-btn active" data-sec="wireframes">Wireframes finales</button>
+  <button class="sec-btn" data-sec="hifi">Hi-Fi · pantallas 1, 2 y 3</button>
+</div>
+
+<!-- ═══════════════ WIREFRAMES FINALES ═══════════════ -->
+<div class="sec-panel active" data-panel="wireframes">
+  <div class="finals">
+    <div class="final-card">
+      <div class="lbl"><span class="num">01</span>Mapa</div>
+      <div id="m-map"></div>
+      <div class="note">Mapa tipo Waze con pines por categoría, filtros de tiempo, heatmap IA "zona hot" y bottom sheet al tocar un pin.</div>
+    </div>
+    <div class="final-card">
+      <div class="lbl"><span class="num">02</span>Descubrir</div>
+      <div id="m-feed"></div>
+      <div class="note">Stories circulares EN VIVO por tipo de evento + feed vertical de cards grandes + recomendación IA "Para ti".</div>
+    </div>
+    <div class="final-card">
+      <div class="lbl"><span class="num">03</span>Detalle del evento</div>
+      <div id="m-detail"></div>
+      <div class="note">Hero, tabs Info/Fotos, resumen IA destacado, reseñas debajo + CTAs Chat · Unirme · Invitar.</div>
+    </div>
+    <div class="final-card">
+      <div class="lbl"><span class="num">04</span>Crear evento</div>
+      <div id="m-create"></div>
+      <div class="note">Formulario con categorías visuales, mini-mapa para dropear pin, etiquetas y sugerencias IA.</div>
+    </div>
+    <div class="final-card">
+      <div class="lbl"><span class="num">05</span>Perfil</div>
+      <div id="m-profile"></div>
+      <div class="note">Intereses editables, eventos próximos/pasados/publicados y recomendación IA basada en gustos.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ HI-FI ═══════════════ -->
+<div class="sec-panel hifi-page" data-panel="hifi" style="margin: -60px -32px 0; min-height: 100vh;">
+  <div class="hifi-header">
+    <h2>Hi-Fi · pantallas 1, 2 y 3</h2>
+    <p>Mockups con tipografía real, jerarquía definida, iconografía, paleta final y componentes de producción.</p>
+  </div>
+  <div class="hifi-grid">
+    <div class="hifi-cell">
+      <div class="title">01 · Mapa</div>
+      <div id="hf-map"></div>
+    </div>
+    <div class="hifi-cell">
+      <div class="title">02 · Descubrir</div>
+      <div id="hf-feed"></div>
+    </div>
+    <div class="hifi-cell">
+      <div class="title">03 · Detalle</div>
+      <div id="hf-detail"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Tweaks panel -->
+<div class="tweaks-panel" id="tweaks">
+  <h3>Tweaks ✎</h3>
+  <div class="t-row">
+    <label>Nombre de la app</label>
+    <div class="t-opts" data-group="name">
+      <button data-val="Bulla" class="on">Bulla</button>
+      <button data-val="Kedada">Kedada</button>
+      <button data-val="Vibra">Vibra</button>
+      <button data-val="Rumbo">Rumbo</button>
+      <button data-val="Cerca">Cerca</button>
+    </div>
+  </div>
+  <div class="t-row">
+    <label>Color de acento</label>
+    <div class="swatch-row" data-group="accent">
+      <div class="swatch on" data-val="#ff5a3c" style="background:#ff5a3c"></div>
+      <div class="swatch" data-val="#6b5cff" style="background:#6b5cff"></div>
+      <div class="swatch" data-val="#2aad64" style="background:#2aad64"></div>
+      <div class="swatch" data-val="#ec4b9f" style="background:#ec4b9f"></div>
+      <div class="swatch" data-val="#111111" style="background:#111111"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="wf-map.jsx"></script>
+<script type="text/babel" src="wf-feed.jsx"></script>
+<script type="text/babel" src="wf-final.jsx"></script>
+<script type="text/babel" src="wf-profile.jsx"></script>
+<script type="text/babel" src="hf-map.jsx"></script>
+<script type="text/babel" src="hf-feed.jsx"></script>
+<script type="text/babel" src="hf-detail.jsx"></script>
+
+<script type="text/babel">
+function mountAll() {
+  const mounts = [
+    ['m-map', MapFinal], ['m-feed', FeedFinal], ['m-detail', DetailFinal],
+    ['m-create', CreateFinal], ['m-profile', ProfileFinal],
+    ['hf-map', HFMap], ['hf-feed', HFFeed], ['hf-detail', HFDetail],
+  ];
+  for (const [id, C] of mounts) {
+    const el = document.getElementById(id);
+    if (el && C && !el.dataset.mounted) {
+      ReactDOM.createRoot(el).render(<C/>);
+      el.dataset.mounted = '1';
+    }
+  }
+}
+setTimeout(mountAll, 150);
+</script>
+
+<script>
+// section switcher
+document.querySelectorAll('.sec-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    const k = b.dataset.sec;
+    document.querySelectorAll('.sec-btn').forEach(x => x.classList.toggle('active', x === b));
+    document.querySelectorAll('.sec-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === k));
+    try { localStorage.setItem('sec', k); } catch(e){}
+  });
+});
+try {
+  const s = localStorage.getItem('sec');
+  if (s) document.querySelector(`.sec-btn[data-sec="${s}"]`)?.click();
+} catch(e) {}
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "appName": "Bulla",
+  "accent": "#ff5a3c"
+}/*EDITMODE-END*/;
+let tweakState = { ...TWEAK_DEFAULTS };
+function applyTweaks() {
+  document.querySelectorAll('[data-name]').forEach(el => el.textContent = tweakState.appName);
+  document.documentElement.style.setProperty('--accent', tweakState.accent);
+  document.querySelectorAll('[data-group="name"] button').forEach(b => b.classList.toggle('on', b.dataset.val === tweakState.appName));
+  document.querySelectorAll('[data-group="accent"] .swatch').forEach(b => b.classList.toggle('on', b.dataset.val === tweakState.accent));
+}
+function setTweak(k, v) { tweakState[k] = v; applyTweaks(); window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*'); }
+document.querySelectorAll('[data-group="name"] button').forEach(b => b.addEventListener('click', () => setTweak('appName', b.dataset.val)));
+document.querySelectorAll('[data-group="accent"] .swatch').forEach(b => b.addEventListener('click', () => setTweak('accent', b.dataset.val)));
+window.addEventListener('message', (e) => {
+  const d = e.data || {};
+  if (d.type === '__activate_edit_mode') document.getElementById('tweaks').classList.add('visible');
+  if (d.type === '__deactivate_edit_mode') document.getElementById('tweaks').classList.remove('visible');
+});
+window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+applyTweaks();
+</script>
+
+</body>
+</html>

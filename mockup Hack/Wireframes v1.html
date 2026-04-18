@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Wireframes — App de eventos comunitarios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Patrick+Hand&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>wireframes · <span class="scribble-under">app de eventos comunitarios</span></h1>
+  <div class="sub">
+    Tipo <b>Waze de eventos</b> — la gente publica lo que pasa en la ciudad, filtros por etiquetas, chat, reseñas y recomendaciones con IA.<br/>
+    <span style="margin-top:10px; display:inline-block;">
+      Nombre tentativo:
+      <span class="name-chip" data-name>Bulla</span>
+      <span style="font-size:16px; color:var(--ink-2)">(cambiable en Tweaks →)</span>
+    </span>
+  </div>
+  <div style="margin-top:12px;">
+    <span class="tag accent">low-fi wireframes</span>
+    <span class="tag">2 variaciones x pantalla</span>
+    <span class="tag">📱 iOS</span>
+    <span class="tag">ES-MX</span>
+  </div>
+</div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="all">Todas</div>
+  <div class="tab" data-tab="map">🗺 Mapa</div>
+  <div class="tab" data-tab="feed">☷ Feed</div>
+  <div class="tab" data-tab="detail">◉ Detalle</div>
+  <div class="tab" data-tab="create">＋ Crear</div>
+</div>
+
+<!-- ═════════════ MAPA ═════════════ -->
+<div class="section tab-panel active" data-panel="all map">
+  <h2><span class="num">01</span> Mapa tipo Waze</h2>
+  <p class="section-desc">La pantalla principal. Pines por categoría, filtros de tiempo (ahora/pronto/hoy/finde) y heatmap de IA para zonas con más ajetreo.</p>
+  <div class="variations">
+    <div class="variation">
+      <div class="variation-label"><span class="dot"></span> A · Mapa full-bleed + bottom sheet</div>
+      <div id="mount-map-a"></div>
+      <div class="variation-note">El mapa es protagonista. Al tocar un pin asoma una card abajo con info rápida. IA sutil (zona hot).</div>
+    </div>
+    <div class="variation">
+      <div class="variation-label"><span class="dot"></span> B · Rail de categorías + carrusel abajo</div>
+      <div id="mount-map-b"></div>
+      <div class="variation-note">Filtros laterales siempre visibles (tap rápido). Abajo, carrusel de "pasando cerca" estilo Waze destinos.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════ FEED ═════════════ -->
+<div class="section tab-panel active" data-panel="all feed">
+  <h2><span class="num">02</span> Feed / Descubrir</h2>
+  <p class="section-desc">Alternativa a lo visual del mapa. Para browsear con más contexto, ver qué pasa hoy, qué hay el finde, recomendaciones IA.</p>
+  <div class="variations">
+    <div class="variation">
+      <div class="variation-label"><span class="dot"></span> A · Cards verticales grandes</div>
+      <div id="mount-feed-a"></div>
+      <div class="variation-note">Scroll vertical clásico. Card de IA "para ti" integrada. Estructura familiar tipo Eventbrite.</div>
+    </div>
+    <div class="variation">
+      <div class="variation-label"><span class="dot"></span> B · Stories "en vivo" + grid</div>
+      <div id="mount-feed-b"></div>
+      <div class="variation-note">Arriba: stories circulares de eventos pasando AHORA. Abajo: grid 2-col denso. Más juvenil, más FOMO.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════ DETALLE ═════════════ -->
+<div class="section tab-panel active" data-panel="all detail">
+  <h2><span class="num">03</span> Detalle del evento</h2>
+  <p class="section-desc">Resumen IA de comentarios (como los de Google Maps), reseñas, etiquetas, asistentes, y CTA para unirse / chat.</p>
+  <div class="variations">
+    <div class="variation">
+      <div class="variation-label"><span class="dot"></span> A · Hero grande + IA destacada</div>
+      <div id="mount-detail-a"></div>
+      <div class="variation-note">Imagen protagonista. Resumen IA destacado como bloque con pros/contras. 3 CTAs abajo (chat, unirme, invitar).</div>
+    </div>
+    <div class="variation">
+      <div class="variation-label"><span class="dot"></span> B · Info compacta + reseñas como foco</div>
+      <div id="mount-detail-b"></div>
+      <div class="variation-note">Info en card compacta, tabs de navegación. Comentarios ocupan el cuerpo — TL;DR de IA inline y discreto.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════ CREAR ═════════════ -->
+<div class="section tab-panel active" data-panel="all create">
+  <h2><span class="num">04</span> Crear / Publicar evento</h2>
+  <p class="section-desc">Dos filosofías: formulario estructurado vs. "dropear un pin" rápido como cuando reportas algo en Waze.</p>
+  <div class="variations">
+    <div class="variation">
+      <div class="variation-label"><span class="dot"></span> A · Formulario lineal con categorías visuales</div>
+      <div id="mount-create-a"></div>
+      <div class="variation-note">Grid de categorías, campos tradicionales, IA sugiere etiquetas. Bueno para eventos planeados.</div>
+    </div>
+    <div class="variation">
+      <div class="variation-label"><span class="dot"></span> B · Pin-drop estilo Waze (rapidísimo)</div>
+      <div id="mount-create-b"></div>
+      <div class="variation-note">Mapa grande + arrastras pin + 4 categorías + 1 campo. Ideal para eventos espontáneos — publicas en 20 segundos.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tweaks panel -->
+<div class="tweaks-panel" id="tweaks">
+  <h3>Tweaks ✎</h3>
+  <div class="t-row">
+    <label>Nombre de la app</label>
+    <div class="t-opts" data-group="name">
+      <button data-val="Bulla" class="on">Bulla</button>
+      <button data-val="Kedada">Kedada</button>
+      <button data-val="Vibra">Vibra</button>
+      <button data-val="Rumbo">Rumbo</button>
+      <button data-val="Cerca">Cerca</button>
+    </div>
+  </div>
+  <div class="t-row">
+    <label>Color de acento</label>
+    <div class="swatch-row" data-group="accent">
+      <div class="swatch on" data-val="#ff5a3c" style="background:#ff5a3c"></div>
+      <div class="swatch" data-val="#6b5cff" style="background:#6b5cff"></div>
+      <div class="swatch" data-val="#2aad64" style="background:#2aad64"></div>
+      <div class="swatch" data-val="#ec4b9f" style="background:#ec4b9f"></div>
+      <div class="swatch" data-val="#111111" style="background:#111111"></div>
+    </div>
+  </div>
+  <div class="t-row">
+    <label>Papel</label>
+    <div class="t-opts" data-group="paper">
+      <button data-val="warm" class="on">Crema</button>
+      <button data-val="white">Blanco</button>
+      <button data-val="grid">Cuadrícula</button>
+    </div>
+  </div>
+</div>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="wf-map.jsx"></script>
+<script type="text/babel" src="wf-feed.jsx"></script>
+<script type="text/babel" src="wf-detail.jsx"></script>
+<script type="text/babel" src="wf-create.jsx"></script>
+
+<script type="text/babel">
+// mount all wireframes
+function mountAll() {
+  const mounts = [
+    ['mount-map-a', MapVariationA],
+    ['mount-map-b', MapVariationB],
+    ['mount-feed-a', FeedVariationA],
+    ['mount-feed-b', FeedVariationB],
+    ['mount-detail-a', DetailVariationA],
+    ['mount-detail-b', DetailVariationB],
+    ['mount-create-a', CreateVariationA],
+    ['mount-create-b', CreateVariationB],
+  ];
+  for (const [id, C] of mounts) {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.mounted) {
+      ReactDOM.createRoot(el).render(<C/>);
+      el.dataset.mounted = '1';
+    }
+  }
+}
+// slight delay so all babel scripts register globals
+setTimeout(mountAll, 100);
+</script>
+
+<script>
+// ─────────── tabs ───────────
+document.querySelectorAll('#tabs .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    const k = t.dataset.tab;
+    document.querySelectorAll('#tabs .tab').forEach(x => x.classList.toggle('active', x === t));
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      const panels = p.dataset.panel.split(' ');
+      p.classList.toggle('active', panels.includes(k));
+    });
+    // persist
+    try { localStorage.setItem('wf-tab', k); } catch(e){}
+  });
+});
+try {
+  const saved = localStorage.getItem('wf-tab');
+  if (saved) {
+    const btn = document.querySelector(`#tabs .tab[data-tab="${saved}"]`);
+    if (btn) btn.click();
+  }
+} catch(e) {}
+
+// ─────────── Tweaks protocol ───────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "appName": "Bulla",
+  "accent": "#ff5a3c",
+  "paper": "grid"
+}/*EDITMODE-END*/;
+
+let tweakState = { ...TWEAK_DEFAULTS };
+
+function applyTweaks() {
+  // app name
+  document.querySelectorAll('[data-name]').forEach(el => el.textContent = tweakState.appName);
+  document.title = `Wireframes — ${tweakState.appName}`;
+  // accent
+  document.documentElement.style.setProperty('--accent', tweakState.accent);
+  // paper
+  const paperMap = {
+    warm:  { paper: '#fbfaf6', paper2: '#f2f0e8' },
+    white: { paper: '#ffffff', paper2: '#eeeeee' },
+    grid:  { paper: '#fbfaf6', paper2: '#f2f0e8' },
+  };
+  const p = paperMap[tweakState.paper] || paperMap.warm;
+  document.documentElement.style.setProperty('--paper', p.paper);
+  document.documentElement.style.setProperty('--paper-2', p.paper2);
+  if (tweakState.paper === 'grid') {
+    document.body.style.backgroundImage = 'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)';
+    document.body.style.backgroundSize = '20px 20px';
+  } else {
+    document.body.style.backgroundImage = 'none';
+  }
+  // update panel "on" states
+  document.querySelectorAll('[data-group="name"] button').forEach(b => b.classList.toggle('on', b.dataset.val === tweakState.appName));
+  document.querySelectorAll('[data-group="accent"] .swatch').forEach(b => b.classList.toggle('on', b.dataset.val === tweakState.accent));
+  document.querySelectorAll('[data-group="paper"] button').forEach(b => b.classList.toggle('on', b.dataset.val === tweakState.paper));
+}
+
+function setTweak(key, val) {
+  tweakState[key] = val;
+  applyTweaks();
+  window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key === 'appName' ? 'appName' : key]: val } }, '*');
+}
+
+// wire tweak panel
+document.querySelectorAll('[data-group="name"] button').forEach(b => b.addEventListener('click', () => setTweak('appName', b.dataset.val)));
+document.querySelectorAll('[data-group="accent"] .swatch').forEach(b => b.addEventListener('click', () => setTweak('accent', b.dataset.val)));
+document.querySelectorAll('[data-group="paper"] button').forEach(b => b.addEventListener('click', () => setTweak('paper', b.dataset.val)));
+
+// edit mode listener (register BEFORE announcing)
+window.addEventListener('message', (e) => {
+  const d = e.data || {};
+  if (d.type === '__activate_edit_mode') document.getElementById('tweaks').classList.add('visible');
+  if (d.type === '__deactivate_edit_mode') document.getElementById('tweaks').classList.remove('visible');
+});
+// announce tweaks availability
+window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+applyTweaks();
+</script>
+
+</body>
+</html>
