@@ -79,6 +79,7 @@ struct Event: Identifiable {
     var status: EventStatus
     var aiSummary: String?
     var reviews: [Review]
+    var imageUrl: String?
 
     init(
         id: UUID = UUID(),
@@ -98,7 +99,8 @@ struct Event: Identifiable {
         reviewCount: Int = 0,
         status: EventStatus = .live,
         aiSummary: String? = nil,
-        reviews: [Review] = []
+        reviews: [Review] = [],
+        imageUrl: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -118,6 +120,7 @@ struct Event: Identifiable {
         self.status = status
         self.aiSummary = aiSummary
         self.reviews = reviews
+        self.imageUrl = imageUrl
     }
 
     // Mapeo desde el DTO del backend
@@ -138,6 +141,7 @@ struct Event: Identifiable {
         self.reviewCount = 0
         self.aiSummary = nil
         self.reviews = []
+        self.imageUrl = dto.imageUrl
 
         if let userLoc = userLocation {
             let rallyLoc = CLLocation(latitude: dto.lat, longitude: dto.lng)

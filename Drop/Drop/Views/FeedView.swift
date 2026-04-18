@@ -278,7 +278,7 @@ struct FeedEventCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Image
             ZStack(alignment: .topLeading) {
-                EventImagePlaceholder(category: event.category, height: 130)
+                EventImagePlaceholder(category: event.category, height: 130, imageUrl: event.imageUrl)
 
                 VStack {
                     HStack {

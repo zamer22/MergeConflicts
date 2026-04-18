@@ -211,7 +211,7 @@ private struct HeroSection: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            EventImagePlaceholder(category: event.category, height: 260)
+            EventImagePlaceholder(category: event.category, height: 260, imageUrl: event.imageUrl)
 
             LinearGradient(
                 colors: [.black.opacity(0.3), .clear, .clear, .black.opacity(0.4)],
