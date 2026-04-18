@@ -202,6 +202,7 @@ struct CreateRallyRequest: Codable {
     let lng: Double
     let category: String
     let tags: [String]
+    let imageUrl: String?
 }
 
 // MARK: - Drop Service

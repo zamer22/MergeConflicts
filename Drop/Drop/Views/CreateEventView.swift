@@ -9,6 +9,7 @@ struct CreateEventView: View {
     @State private var title = ""
     @State private var tags: [String] = ["#gratis", "#aire-libre"]
     @State private var newTagText = ""
+    @State private var imageUrl = ""
     @State private var isPublishing = false
     @State private var startTime = Date()
     @State private var endTime = Date().addingTimeInterval(3 * 3600)
@@ -76,6 +77,30 @@ struct CreateEventView: View {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 24))
                                     .foregroundColor(BullaTheme.Colors.brand)
+                            }
+                        }
+                    }
+
+                    // Image URL
+                    VStack(alignment: .leading, spacing: 6) {
+                        SectionLabel("FOTO (URL opcional)")
+                        TextField("https://...", text: $imageUrl)
+                            .font(BullaTheme.Font.body(14))
+                            .keyboardType(.URL)
+                            .autocapitalization(.none)
+                            .autocorrectionDisabled()
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(BullaTheme.Colors.chipBg)
+                            .clipShape(RoundedRectangle(cornerRadius: BullaTheme.Radius.sm))
+                        if imageUrl.hasPrefix("http"), let url = URL(string: imageUrl) {
+                            AsyncImage(url: url) { phase in
+                                if case .success(let img) = phase {
+                                    img.resizable().scaledToFill()
+                                        .frame(maxWidth: .infinity).frame(height: 120)
+                                        .clipped()
+                                        .clipShape(RoundedRectangle(cornerRadius: BullaTheme.Radius.md))
+                                }
                             }
                         }
                     }
@@ -226,7 +251,8 @@ struct CreateEventView: View {
                 lat: pinnedCoordinate.latitude,
                 lng: pinnedCoordinate.longitude,
                 category: selectedCategory.backendKey,
-                tags: tags
+                tags: tags,
+                imageUrl: imageUrl.trimmingCharacters(in: .whitespaces).isEmpty ? nil : imageUrl.trimmingCharacters(in: .whitespaces)
             )
             if (try? await DropService.shared.createRally(req)) != nil {
                 appState.afterPublish()
