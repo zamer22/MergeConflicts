@@ -88,19 +88,58 @@ struct BullaAvatar: View {
 // MARK: - Search Bar
 struct BullaSearchBar: View {
     var placeholder: String = "Buscar eventos..."
+    private let text: Binding<String>?
+    private let onFilterTap: (() -> Void)?
+
+    init(placeholder: String = "Buscar eventos...", onFilterTap: (() -> Void)? = nil) {
+        self.placeholder = placeholder
+        self.text = nil
+        self.onFilterTap = onFilterTap
+    }
+
+    init(text: Binding<String>, placeholder: String = "Buscar eventos...", onFilterTap: (() -> Void)? = nil) {
+        self.placeholder = placeholder
+        self.text = text
+        self.onFilterTap = onFilterTap
+    }
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(BullaTheme.Colors.textTertiary)
                 .font(.system(size: 14))
-            Text(placeholder)
-                .font(BullaTheme.Font.body(14))
-                .foregroundColor(BullaTheme.Colors.textTertiary)
+
+            if let text {
+                TextField(placeholder, text: text)
+                    .font(BullaTheme.Font.body(14))
+                    .foregroundColor(BullaTheme.Colors.ink)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                if !text.wrappedValue.isEmpty {
+                    Button {
+                        text.wrappedValue = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(BullaTheme.Colors.textTertiary.opacity(0.9))
+                            .font(.system(size: 15))
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                Text(placeholder)
+                    .font(BullaTheme.Font.body(14))
+                    .foregroundColor(BullaTheme.Colors.textTertiary)
+            }
+
             Spacer()
-            Image(systemName: "line.3.horizontal.decrease")
-                .foregroundColor(BullaTheme.Colors.brand)
-                .font(.system(size: 14, weight: .medium))
+
+            Button(action: { onFilterTap?() }) {
+                Image(systemName: "line.3.horizontal.decrease")
+                    .foregroundColor(BullaTheme.Colors.brand)
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

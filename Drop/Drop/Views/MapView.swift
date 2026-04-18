@@ -1,12 +1,98 @@
 import SwiftUI
 import MapKit
 
+private enum MapQuickFilter: String, CaseIterable, Identifiable, Equatable {
+    case now
+    case soon
+    case today
+    case weekend
+    case free
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .now: return "● Ahora"
+        case .soon: return "Pronto"
+        case .today: return "Hoy"
+        case .weekend: return "Finde"
+        case .free: return "Gratis"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .now: return "Ahora"
+        case .soon: return "Pronto"
+        case .today: return "Hoy"
+        case .weekend: return "Finde"
+        case .free: return "Gratis"
+        }
+    }
+
+    var selectedStyle: BullaChip.ChipStyle {
+        switch self {
+        case .now: return .live
+        case .soon: return .soon
+        case .today, .weekend, .free: return .brand
+        }
+    }
+
+    func matches(_ event: Event, now: Date = Date()) -> Bool {
+        let calendar = Calendar.current
+
+        switch self {
+        case .now:
+            if case .live = event.status {
+                return true
+            }
+            return event.startTime <= now && (event.endTime == nil || event.endTime ?? now > now)
+        case .soon:
+            if case let .upcoming(minutesAway) = event.status {
+                return minutesAway <= 180
+            }
+            return event.startTime > now && event.startTime.timeIntervalSince(now) <= 60 * 60 * 3
+        case .today:
+            return calendar.isDateInToday(event.startTime)
+        case .weekend:
+            return calendar.isDateInWeekend(event.startTime)
+        case .free:
+            return event.isFree || event.entryFee == 0
+        }
+    }
+}
+
+private enum MapSortMode: CaseIterable, Equatable {
+    case distance
+    case crowd
+    case smart
+
+    var label: String {
+        switch self {
+        case .distance: return "Cercanía"
+        case .crowd: return "Popularidad"
+        case .smart: return "Mix IA"
+        }
+    }
+
+    mutating func advance() {
+        switch self {
+        case .distance: self = .crowd
+        case .crowd: self = .smart
+        case .smart: self = .distance
+        }
+    }
+}
+
 struct MapView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedEvent: Event? = nil
     @State private var selectedHotZoneID: UUID? = nil
     @State private var isHotZoneVisible = false
     @State private var showBottomSheet = true
+    @State private var searchText = ""
+    @State private var selectedQuickFilter: MapQuickFilter = .now
+    @State private var sortMode: MapSortMode = .distance
     @State private var cameraPosition = MapCameraPosition.region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 25.6672, longitude: -100.3101),
@@ -14,14 +100,53 @@ struct MapView: View {
         )
     )
 
+    private var trimmedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var visibleEvents: [Event] {
+        sort(events: appState.events.filter(matchesSearch).filter { selectedQuickFilter.matches($0) })
+    }
+
+    private var visibleHotZones: [HotZone] {
+        guard !trimmedSearchText.isEmpty else { return appState.hotZones }
+        return appState.hotZones.filter(matchesSearch)
+    }
+
+    private var activeHotZone: HotZone? {
+        visibleHotZones.first(where: { $0.id == selectedHotZoneID }) ?? visibleHotZones.first
+    }
+
+    private var activeEvent: Event? {
+        if let selectedEvent, visibleEvents.contains(where: { $0.id == selectedEvent.id }) {
+            return selectedEvent
+        }
+        return defaultPreferredEvent(in: visibleEvents)
+    }
+
+    private var resultsSummary: String {
+        if visibleEvents.isEmpty {
+            if trimmedSearchText.isEmpty {
+                return "No hay eventos para \(selectedQuickFilter.title.lowercased())"
+            }
+            return "Sin resultados para \"\(trimmedSearchText)\""
+        }
+
+        let noun = visibleEvents.count == 1 ? "resultado" : "resultados"
+        if trimmedSearchText.isEmpty {
+            return "\(visibleEvents.count) \(noun) en \(selectedQuickFilter.title.lowercased())"
+        }
+        return "\(visibleEvents.count) \(noun) para \"\(trimmedSearchText)\""
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
 
             DropMapCanvas(
                 cameraPosition: $cameraPosition,
                 showsHotZones: isHotZoneVisible,
-                hotZones: appState.hotZones,
-                events: appState.events,
+                hotZones: visibleHotZones,
+                events: visibleEvents,
                 selectedEventID: selectedEvent?.id,
                 selectedHotZoneID: activeHotZone?.id,
                 onSelectZone: { zone in
@@ -55,46 +180,85 @@ struct MapView: View {
             if appState.hotZones.isEmpty {
                 await appState.loadHotZones()
             }
-            if selectedEvent == nil {
-                selectedEvent = defaultLiveEvent(in: appState.events)
-            }
-            if selectedHotZoneID == nil {
-                selectedHotZoneID = appState.hotZones.first?.id
-            }
+            syncSelection()
         }
         .onChange(of: appState.events.map(\.id)) { _, _ in
-            let newEvents = appState.events
-            if selectedEvent == nil || !(newEvents.contains { $0.id == selectedEvent?.id }) {
-                selectedEvent = defaultLiveEvent(in: newEvents)
-            }
+            syncSelection()
         }
         .onChange(of: appState.hotZones.map(\.id)) { _, _ in
-            let newZones = appState.hotZones
-            if selectedHotZoneID == nil || !(newZones.contains { $0.id == selectedHotZoneID }) {
-                selectedHotZoneID = newZones.first?.id
-            }
+            syncSelection()
         }
-    }
-
-    var activeHotZone: HotZone? {
-        appState.hotZones.first(where: { $0.id == selectedHotZoneID }) ?? appState.hotZones.first
+        .onChange(of: searchText) { _, _ in
+            syncSelection(refocusMap: true)
+        }
+        .onChange(of: selectedQuickFilter) { _, _ in
+            syncSelection(refocusMap: true)
+        }
+        .onChange(of: sortMode) { _, _ in
+            syncSelection(refocusMap: true)
+        }
     }
 
     private var topChrome: some View {
-        VStack(spacing: 10) {
-            BullaSearchBar(placeholder: "Buscar eventos o lugares")
+        VStack(alignment: .leading, spacing: 10) {
+            BullaSearchBar(text: $searchText, placeholder: "Buscar eventos o lugares") {
+                withAnimation(.spring(duration: 0.25)) {
+                    sortMode.advance()
+                    syncSelection(refocusMap: true)
+                }
+            }
                 .padding(.horizontal, BullaTheme.Spacing.lg)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    BullaChip(text: "● Ahora", style: .live)
-                    BullaChip(text: "Pronto", style: .soon)
-                    BullaChip(text: "Hoy", style: .outline)
-                    BullaChip(text: "Finde", style: .outline)
-                    BullaChip(text: "Gratis", style: .outline)
+                    ForEach(MapQuickFilter.allCases) { filter in
+                        Button {
+                            withAnimation(.spring(duration: 0.25)) {
+                                selectedQuickFilter = filter
+                            }
+                        } label: {
+                            BullaChip(
+                                text: filter.label,
+                                style: selectedQuickFilter == filter ? filter.selectedStyle : .outline
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal, BullaTheme.Spacing.lg)
             }
+
+            HStack(spacing: 8) {
+                Text(resultsSummary)
+                    .font(BullaTheme.Font.body(11, weight: .semibold))
+                    .foregroundColor(BullaTheme.Colors.textSecondary)
+                    .lineLimit(1)
+
+                Spacer()
+
+                Text(sortMode.label)
+                    .font(BullaTheme.Font.body(11, weight: .semibold))
+                    .foregroundColor(BullaTheme.Colors.brand)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.white.opacity(0.9))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(BullaTheme.Colors.line, lineWidth: 1))
+
+                if !trimmedSearchText.isEmpty || sortMode != .distance {
+                    Button("Limpiar") {
+                        withAnimation(.spring(duration: 0.25)) {
+                            searchText = ""
+                            sortMode = .distance
+                            syncSelection(refocusMap: true)
+                        }
+                    }
+                    .font(BullaTheme.Font.body(11, weight: .semibold))
+                    .foregroundColor(BullaTheme.Colors.brand)
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, BullaTheme.Spacing.lg)
         }
         .padding(.top, 10)
         .background(
@@ -127,10 +291,24 @@ struct MapView: View {
                 )
                 .padding(.horizontal, BullaTheme.Spacing.lg)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else if showBottomSheet, let event = selectedEvent ?? defaultLiveEvent(in: appState.events) {
+            } else if showBottomSheet, let event = activeEvent {
                 MapBottomSheet(event: event) {
                     appState.selectedEvent = event
                 }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if !isHotZoneVisible {
+                MapEmptyStateCard(
+                    query: trimmedSearchText,
+                    filterLabel: selectedQuickFilter.title
+                ) {
+                    withAnimation(.spring(duration: 0.25)) {
+                        searchText = ""
+                        selectedQuickFilter = .now
+                        sortMode = .distance
+                        syncSelection(refocusMap: true)
+                    }
+                }
+                .padding(.horizontal, BullaTheme.Spacing.lg)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -146,7 +324,16 @@ struct MapView: View {
         )
     }
 
-    private func defaultLiveEvent(in events: [Event]) -> Event? {
+    private func focus(on event: Event) {
+        cameraPosition = .region(
+            MKCoordinateRegion(
+                center: coordinate(for: event),
+                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+            )
+        )
+    }
+
+    private func defaultPreferredEvent(in events: [Event]) -> Event? {
         events.first(where: isLive) ?? events.first
     }
 
@@ -155,6 +342,111 @@ struct MapView: View {
             return true
         }
         return false
+    }
+
+    private func matchesSearch(_ event: Event) -> Bool {
+        guard !trimmedSearchText.isEmpty else { return true }
+        let searchableText = [
+            event.title,
+            event.location,
+            event.category.rawValue,
+            event.category.backendKey,
+            event.tags.joined(separator: " "),
+            event.aiSummary ?? ""
+        ]
+            .joined(separator: " ")
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+
+        return searchableText.contains(
+            trimmedSearchText
+                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+                .lowercased()
+        )
+    }
+
+    private func matchesSearch(_ zone: HotZone) -> Bool {
+        guard !trimmedSearchText.isEmpty else { return true }
+        let searchableText = [
+            zone.title,
+            zone.categoriesLabel,
+            zone.insight ?? "",
+            zone.fallbackInsight
+        ]
+            .joined(separator: " ")
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+
+        return searchableText.contains(
+            trimmedSearchText
+                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+                .lowercased()
+        )
+    }
+
+    private func sort(events: [Event]) -> [Event] {
+        switch sortMode {
+        case .distance:
+            return events.sorted { $0.distanceMeters < $1.distanceMeters }
+        case .crowd:
+            return events.sorted {
+                if $0.attendeeCount == $1.attendeeCount {
+                    return $0.distanceMeters < $1.distanceMeters
+                }
+                return $0.attendeeCount > $1.attendeeCount
+            }
+        case .smart:
+            return events.sorted {
+                let leftLiveBias = isLive($0) ? 1 : 0
+                let rightLiveBias = isLive($1) ? 1 : 0
+
+                if leftLiveBias != rightLiveBias {
+                    return leftLiveBias > rightLiveBias
+                }
+
+                let leftScore = Double($0.attendeeCount) - ($0.distanceMeters / 160)
+                let rightScore = Double($1.attendeeCount) - ($1.distanceMeters / 160)
+
+                if leftScore == rightScore {
+                    return $0.startTime < $1.startTime
+                }
+                return leftScore > rightScore
+            }
+        }
+    }
+
+    private func syncSelection(refocusMap: Bool = false) {
+        let events = visibleEvents
+        if let selectedEvent, !events.contains(where: { $0.id == selectedEvent.id }) {
+            self.selectedEvent = nil
+        }
+        if selectedEvent == nil {
+            selectedEvent = defaultPreferredEvent(in: events)
+        }
+
+        let zones = visibleHotZones
+        if selectedHotZoneID == nil || !zones.contains(where: { $0.id == selectedHotZoneID }) {
+            selectedHotZoneID = zones.first?.id
+        }
+
+        if refocusMap, !isHotZoneVisible, let selectedEvent {
+            focus(on: selectedEvent)
+        }
+    }
+
+    private func coordinate(for event: Event) -> CLLocationCoordinate2D {
+        if let coordinate = event.coordinate {
+            return coordinate
+        }
+        if event.lat != 0 && event.lng != 0 {
+            return CLLocationCoordinate2D(latitude: event.lat, longitude: event.lng)
+        }
+        let base = CLLocationCoordinate2D(latitude: 25.6672, longitude: -100.3101)
+        let idx = visibleEvents.firstIndex(where: { $0.id == event.id }) ?? 0
+        return CLLocationCoordinate2D(
+            latitude: base.latitude + Double(idx) * 0.003,
+            longitude: base.longitude + Double(idx % 2 == 0 ? 1 : -1) * 0.004
+        )
     }
 }
 
@@ -424,10 +716,80 @@ private struct HotZoneInsightCard: View {
     }
 }
 
+private struct MapEmptyStateCard: View {
+    let query: String
+    let filterLabel: String
+    let onReset: () -> Void
+
+    private var title: String {
+        query.isEmpty ? "Sin eventos por ahora" : "Sin matches todavía"
+    }
+
+    private var subtitle: String {
+        query.isEmpty
+        ? "No encontramos nada para \(filterLabel.lowercased()) cerca de ti. En la demo, aquí podrías cambiar el filtro o volver al mapa general."
+        : "No hubo resultados para \"\(query)\" dentro de \(filterLabel.lowercased()). Aquí viviría la sugerencia de limpiar búsqueda o probar otra zona."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "scope")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(BullaTheme.Colors.brand)
+
+                Text(title)
+                    .font(BullaTheme.Font.heading(15))
+                    .foregroundColor(BullaTheme.Colors.ink)
+            }
+
+            Text(subtitle)
+                .font(BullaTheme.Font.body(12))
+                .foregroundColor(BullaTheme.Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            BullaSecondaryButton(title: "Ver todo", icon: "arrow.counterclockwise", action: onReset)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(.white.opacity(0.96))
+                .shadow(color: .black.opacity(0.08), radius: 20, x: 0, y: 10)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(BullaTheme.Colors.line, lineWidth: 1)
+        )
+    }
+}
+
 // MARK: - Map Bottom Sheet
 struct MapBottomSheet: View {
     let event: Event
     var onTap: () -> Void
+
+    private var statusChip: (text: String, style: BullaChip.ChipStyle) {
+        switch event.status {
+        case .live:
+            return ("En vivo", .live)
+        case let .upcoming(minutesAway):
+            if minutesAway <= 180 {
+                return ("Pronto", .soon)
+            }
+            if Calendar.current.isDateInWeekend(event.startTime) {
+                return ("Finde", .outline)
+            }
+            if Calendar.current.isDateInToday(event.startTime) {
+                return ("Hoy", .outline)
+            }
+            return ("Próximo", .outline)
+        case .today:
+            return ("Hoy", .outline)
+        case .weekend:
+            return ("Finde", .outline)
+        }
+    }
 
     var body: some View {
         Button(action: onTap) {
@@ -445,7 +807,7 @@ struct MapBottomSheet: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            BullaChip(text: "En vivo", style: .live)
+                            BullaChip(text: statusChip.text, style: statusChip.style)
                             if event.isFree {
                                 BullaChip(text: "Gratis", style: .default)
                             }
