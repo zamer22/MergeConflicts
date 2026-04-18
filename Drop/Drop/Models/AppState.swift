@@ -29,6 +29,10 @@ class AppState: ObservableObject {
     @Published var isLoadingEvents: Bool = false
     @Published var savedEventIds: Set<String> = []
     @Published var recommendationText: String = "Descubriendo eventos para ti..."
+    @Published var hotZones: [HotZone] = []
+    @Published var hotZoneSummary: String = "Analizando en qué zona suele prenderse la ciudad..."
+    @Published var hotZoneInsightSource: String = "Motor local"
+    @Published var isLoadingHotZones: Bool = false
 
     var currentUser: User? {
         if case .authenticated(let user) = authState { return user }
@@ -68,6 +72,9 @@ class AppState: ObservableObject {
         events = []
         savedEvents = []
         savedEventIds = []
+        hotZones = []
+        hotZoneSummary = "Analizando en qué zona suele prenderse la ciudad..."
+        hotZoneInsightSource = "Motor local"
         UserDefaults.standard.removeObject(forKey: "dropUserId")
     }
 
@@ -76,9 +83,16 @@ class AppState: ObservableObject {
     func loadEvents(category: String? = nil, search: String? = nil) async {
         isLoadingEvents = true
         do {
-            events = try await DropService.shared.fetchRallies(category: category, search: search)
-        } catch {}
+            let fetched = try await DropService.shared.fetchRallies(category: category, search: search)
+            if !fetched.isEmpty {
+                events = fetched
+            }
+        } catch {
+            // Mantiene los eventos existentes si la API no responde
+        }
         isLoadingEvents = false
+        await loadSaved()
+        await loadHotZones()
     }
 
     func loadSaved() async {
@@ -155,5 +169,37 @@ class AppState: ObservableObject {
             await loadEvents()
         }
         selectedTab = .feed
+    }
+
+    func loadHotZones() async {
+        isLoadingHotZones = true
+        hotZoneInsightSource = "Motor local"
+
+        let history: [Event]
+        if let userId = currentUserId {
+            history = (try? await DropService.shared.fetchPast(userId: userId)) ?? []
+        } else {
+            history = []
+        }
+
+        var generatedZones = HotZoneEngine().generateHotZones(
+            currentEvents: events,
+            historicalEvents: history
+        )
+
+        if let firstZone = generatedZones.first {
+            if let aiInsight = await AppleHotZoneNarrator.shared.insight(for: firstZone) {
+                generatedZones[0].insight = aiInsight
+                hotZoneSummary = aiInsight
+                hotZoneInsightSource = "Apple Intelligence"
+            } else {
+                hotZoneSummary = firstZone.fallbackInsight
+            }
+        } else {
+            hotZoneSummary = "Todavía no hay suficiente historial para detectar una zona caliente."
+        }
+
+        hotZones = generatedZones
+        isLoadingHotZones = false
     }
 }

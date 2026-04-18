@@ -65,6 +65,8 @@ struct Event: Identifiable {
     var title: String
     var category: EventCategory
     var location: String
+    var latitude: Double?
+    var longitude: Double?
     var distanceMeters: Double
     var lat: Double
     var lng: Double
@@ -98,12 +100,16 @@ struct Event: Identifiable {
         reviewCount: Int = 0,
         status: EventStatus = .live,
         aiSummary: String? = nil,
-        reviews: [Review] = []
+        reviews: [Review] = [],
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) {
         self.id = id
         self.title = title
         self.category = category
         self.location = location
+        self.latitude = latitude
+        self.longitude = longitude
         self.distanceMeters = distanceMeters
         self.lat = lat
         self.lng = lng
@@ -128,6 +134,8 @@ struct Event: Identifiable {
         self.location = dto.venues?.name ?? dto.venues?.address ?? "Monterrey, NL"
         self.lat = dto.lat
         self.lng = dto.lng
+        self.latitude = dto.lat
+        self.longitude = dto.lng
         self.startTime = dto.startsAt
         self.endTime = dto.expiresAt
         self.isFree = (dto.entryFee ?? 0) == 0
@@ -201,7 +209,9 @@ extension Event {
                 Review(authorName: "Sofía R.", stars: 5, text: "Encontré plantas que no se ven por ningún lado. Volveré sin dudarlo."),
                 Review(authorName: "Mario L.", stars: 4, text: "Buen ambiente pero hay que llegar temprano, después se llena mucho."),
                 Review(authorName: "Ana P.", stars: 5, text: "Los vendedores son muy amables. Solo llevan efectivo.")
-            ]
+            ],
+            latitude: 19.4368,
+            longitude: -99.1413
         ),
         Event(
             title: "Jam session abierta",
@@ -214,7 +224,9 @@ extension Event {
             attendeeCount: 14,
             rating: 4.8,
             reviewCount: 22,
-            status: .live
+            status: .live,
+            latitude: 19.4114,
+            longitude: -99.1712
         ),
         Event(
             title: "Mercado de diseñadores",
@@ -226,7 +238,16 @@ extension Event {
             attendeeCount: 87,
             rating: 4.5,
             reviewCount: 30,
-            status: .upcoming(minutesAway: 1440)
+            status: .upcoming(minutesAway: 1440),
+            latitude: 19.4361,
+            longitude: -99.1547
         )
     ]
+}
+
+extension Event {
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
 }
