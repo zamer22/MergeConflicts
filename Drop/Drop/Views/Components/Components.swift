@@ -315,8 +315,7 @@ struct EventCoverImage: View {
     var height: CGFloat = 120
 
     var body: some View {
-        if let imageURL = event.imageURL,
-           let url = URL(string: imageURL) {
+        if let url = normalizedURL(from: event.imageURL) {
             AsyncImage(url: url) { phase in
                 switch phase {
                 case let .success(image):
@@ -341,6 +340,38 @@ struct EventCoverImage: View {
         } else {
             EventImagePlaceholder(category: event.category, height: height)
         }
+    }
+
+    private func normalizedURL(from rawValue: String?) -> URL? {
+        guard let rawValue else { return nil }
+
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.uppercased() != "NULL" else { return nil }
+
+        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? trimmed
+        guard var components = URLComponents(string: encoded) else { return nil }
+
+        if components.host?.contains("images.unsplash.com") == true {
+            var queryItems = components.queryItems ?? []
+            let existingNames = Set(queryItems.map(\.name))
+
+            if !existingNames.contains("auto") {
+                queryItems.append(URLQueryItem(name: "auto", value: "format"))
+            }
+            if !existingNames.contains("fit") {
+                queryItems.append(URLQueryItem(name: "fit", value: "crop"))
+            }
+            if !existingNames.contains("w") {
+                queryItems.append(URLQueryItem(name: "w", value: "1200"))
+            }
+            if !existingNames.contains("q") {
+                queryItems.append(URLQueryItem(name: "q", value: "80"))
+            }
+
+            components.queryItems = queryItems
+        }
+
+        return components.url
     }
 }
 

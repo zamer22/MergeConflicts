@@ -4,7 +4,7 @@ import Combine
 // MARK: - Event Detail ViewModel
 @MainActor
 final class EventDetailViewModel: ObservableObject {
-    let baseEvent: Event
+    @Published var event: Event
     @Published var attendeeCount: Int
     @Published var rating: Double
     @Published var reviewCount: Int
@@ -19,7 +19,7 @@ final class EventDetailViewModel: ObservableObject {
     @Published var isLoadingDetail = true
 
     init(event: Event) {
-        baseEvent = event
+        self.event = event
         attendeeCount = event.attendeeCount
         rating = event.rating
         reviewCount = event.reviewCount
@@ -32,20 +32,23 @@ final class EventDetailViewModel: ObservableObject {
     }
 
     func loadDetail() async {
-        let id = baseEvent.id.uuidString.lowercased()
+        let id = event.id.uuidString.lowercased()
         async let detailTask = loadDetailResult(id: id)
         async let aiTask = loadAISummaryResult(id: id)
-        async let creatorTask = loadCreator(id: baseEvent.creatorId)
-        async let venueTask = loadVenue(id: baseEvent.venueId)
 
-        let (detailResult, aiResult, fetchedCreator, fetchedVenue) = await (detailTask, aiTask, creatorTask, venueTask)
+        let (detailResult, aiResult) = await (detailTask, aiTask)
 
         if case let .success(d) = detailResult {
+            event = d
             attendeeCount = d.attendeeCount
             rating = d.rating
             reviewCount = d.reviewCount
             reviews = sanitizeReviews(d.reviews)
         }
+
+        async let creatorTask = loadCreator(id: event.creatorId)
+        async let venueTask = loadVenue(id: event.venueId)
+        let (fetchedCreator, fetchedVenue) = await (creatorTask, venueTask)
 
         creator = fetchedCreator
         venueDetail = fetchedVenue
@@ -107,21 +110,21 @@ final class EventDetailViewModel: ObservableObject {
         if !reviews.isEmpty {
             let topReviews = reviews.prefix(2).map(\.text).joined(separator: " ")
             if !topReviews.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return "\(crowdText) en \(baseEvent.location). La IA no respondió a tiempo, así que armamos un resumen local con reseñas: \(topReviews)"
+                return "\(crowdText) en \(event.location). La IA no respondió a tiempo, así que armamos un resumen local con reseñas: \(topReviews)"
             }
         }
 
-        let tagText = baseEvent.tags.prefix(3).joined(separator: " · ")
+        let tagText = event.tags.prefix(3).joined(separator: " · ")
         if !tagText.isEmpty {
-            return "\(baseEvent.title) en \(baseEvent.location). \(crowdText) y por ahora destaca por \(tagText.lowercased())."
+            return "\(event.title) en \(event.location). \(crowdText) y por ahora destaca por \(tagText.lowercased())."
         }
 
-        return "\(baseEvent.title) en \(baseEvent.location). \(crowdText) y el resumen IA todavía no está disponible."
+        return "\(event.title) en \(event.location). \(crowdText) y el resumen IA todavía no está disponible."
     }
 
     private func fallbackTags() -> [String] {
-        if !baseEvent.tags.isEmpty {
-            return Array(baseEvent.tags.prefix(3))
+        if !event.tags.isEmpty {
+            return Array(event.tags.prefix(3))
         }
 
         var tags: [String] = []
@@ -131,7 +134,7 @@ final class EventDetailViewModel: ObservableObject {
         if rating > 0 {
             tags.append(String(format: "★ %.1f", rating))
         }
-        tags.append(baseEvent.category.rawValue)
+        tags.append(event.category.rawValue)
         return Array(tags.prefix(3))
     }
 
@@ -167,7 +170,7 @@ final class EventDetailViewModel: ObservableObject {
 
     private func fallbackReviews() -> [Review] {
         let vibeText: String
-        switch baseEvent.category {
+        switch event.category {
         case .food:
             vibeText = "La selección y el ambiente hacen que se antoje quedarse más tiempo."
         case .music:
@@ -184,14 +187,14 @@ final class EventDetailViewModel: ObservableObject {
             vibeText = "Tiene buena vibra y suficiente movimiento para que no se sienta vacío."
         }
 
-        let tagLine = baseEvent.tags.prefix(2).joined(separator: " ")
+        let tagLine = event.tags.prefix(2).joined(separator: " ")
         let extraContext = tagLine.isEmpty ? "" : " Se nota el mood de \(tagLine.lowercased())."
 
         return [
             Review(
                 authorName: "Sofía R.",
                 stars: 5,
-                text: "\(baseEvent.title) en \(baseEvent.location) se siente como plan fácil para caer sin pensarlo mucho.\(extraContext)"
+                text: "\(event.title) en \(event.location) se siente como plan fácil para caer sin pensarlo mucho.\(extraContext)"
             ),
             Review(
                 authorName: "Mario L.",
@@ -247,12 +250,12 @@ struct EventDetailView: View {
 
                     // Hero
                     HeroSection(
-                        event: vm.baseEvent,
-                        isSaved: appState.isSaved(vm.baseEvent),
+                        event: vm.event,
+                        isSaved: appState.isSaved(vm.event),
                         onBack: { dismiss() },
                         onToggleSave: {
-                            let wasSaved = appState.isSaved(vm.baseEvent)
-                            appState.saveFromDetailAndOpenSaved(vm.baseEvent)
+                            let wasSaved = appState.isSaved(vm.event)
+                            appState.saveFromDetailAndOpenSaved(vm.event)
                             if !wasSaved {
                                 dismiss()
                             }
@@ -287,7 +290,7 @@ struct EventDetailView: View {
 
                         // Title + Meta
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(vm.baseEvent.title)
+                            Text(vm.event.title)
                                 .font(.system(size: 22, weight: .black, design: .rounded))
                                 .tracking(-0.5)
 
@@ -308,7 +311,7 @@ struct EventDetailView: View {
                                     .foregroundColor(BullaTheme.Colors.textSecondary)
                             }
 
-                            if let description = vm.baseEvent.description,
+                            if let description = vm.event.description,
                                !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 Text(description)
                                     .font(BullaTheme.Font.body(13))
@@ -319,16 +322,16 @@ struct EventDetailView: View {
 
                         // Tags
                         HStack(spacing: 6) {
-                            ForEach(vm.baseEvent.tags, id: \.self) { tag in
+                            ForEach(vm.event.tags, id: \.self) { tag in
                                 BullaChip(text: tag)
                             }
                         }
 
-                        if vm.creator != nil || vm.venueDetail != nil || vm.baseEvent.venueAddress != nil {
+                        if vm.creator != nil || vm.venueDetail != nil || vm.event.venueAddress != nil {
                             EventMetaCard(
                                 creator: vm.creator,
-                                venueName: vm.venueDetail?.name ?? vm.baseEvent.location,
-                                venueAddress: vm.venueDetail?.address ?? vm.baseEvent.venueAddress
+                                venueName: vm.venueDetail?.name ?? vm.event.location,
+                                venueAddress: vm.venueDetail?.address ?? vm.event.venueAddress
                             )
                         }
 
@@ -405,17 +408,17 @@ struct EventDetailView: View {
     private var formattedTime: String {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
-        let start = f.string(from: vm.baseEvent.startTime)
-        if let end = vm.baseEvent.endTime {
+        let start = f.string(from: vm.event.startTime)
+        if let end = vm.event.endTime {
             return "Hoy \(start) – \(f.string(from: end))"
         }
         return "Hoy \(start)"
     }
 
     private var locationText: String {
-        let loc = vm.baseEvent.location
-        if vm.baseEvent.distanceMeters > 0 {
-            return "\(loc) · a \(Int(vm.baseEvent.distanceMeters))m"
+        let loc = vm.event.location
+        if vm.event.distanceMeters > 0 {
+            return "\(loc) · a \(Int(vm.event.distanceMeters))m"
         }
         return loc
     }
