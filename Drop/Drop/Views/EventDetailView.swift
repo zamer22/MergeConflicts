@@ -90,6 +90,24 @@ final class EventDetailViewModel: ObservableObject {
         isJoining = false
     }
 
+    func addReview(authorName: String, stars: Int, text: String) {
+        let cleanedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedText.isEmpty else { return }
+
+        let review = Review(authorName: authorName, stars: stars, text: cleanedText)
+        reviews.insert(review, at: 0)
+        reviewCount = reviews.count
+
+        let totalStars = reviews.map(\.stars).reduce(0, +)
+        rating = Double(totalStars) / Double(reviews.count)
+        participantPreviewInitials = buildParticipantPreviewInitials()
+
+        if aiSummarySourceLabel == "Motor local" {
+            aiSummary = fallbackSummary()
+            aiTags = fallbackTags()
+        }
+    }
+
     private func loadDetailResult(id: String) async -> Result<Event, Error> {
         do {
             return .success(try await DropService.shared.fetchRallyDetail(id: id))
@@ -245,6 +263,7 @@ final class EventDetailViewModel: ObservableObject {
         }
         return Array(unique.prefix(3))
     }
+
 }
 
 // MARK: - Event Detail View
@@ -253,6 +272,7 @@ struct EventDetailView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
     @State private var showJoinError = false
+    @State private var showReviewComposer = false
 
     init(event: Event) {
         _vm = StateObject(wrappedValue: EventDetailViewModel(event: event))
@@ -391,6 +411,7 @@ struct EventDetailView: View {
 
             // CTA Footer
             CTAFooter(
+                onAddReview: { showReviewComposer = true },
                 isJoining: vm.isJoining,
                 hasJoined: vm.hasJoined,
                 onJoin: {
@@ -412,6 +433,18 @@ struct EventDetailView: View {
             Button("OK") { showJoinError = false }
         } message: {
             Text(vm.joinError ?? "Intenta de nuevo")
+        }
+        .sheet(isPresented: $showReviewComposer) {
+            AddReviewSheet(
+                eventTitle: vm.event.title,
+                authorName: appState.currentUser?.name ?? "Tú"
+            ) { stars, text in
+                vm.addReview(
+                    authorName: appState.currentUser?.name ?? "Tú",
+                    stars: stars,
+                    text: text
+                )
+            }
         }
     }
 
@@ -676,6 +709,7 @@ struct ReviewRow: View {
 
 // MARK: - CTA Footer
 private struct CTAFooter: View {
+    let onAddReview: () -> Void
     let isJoining: Bool
     let hasJoined: Bool
     let onJoin: () -> Void
@@ -688,7 +722,7 @@ private struct CTAFooter: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            BullaSecondaryButton(title: "Chat", icon: "bubble.left")
+            BullaSecondaryButton(title: "Agregar reseña", icon: "square.and.pencil", action: onAddReview)
             BullaPrimaryButton(
                 title: buttonTitle,
                 action: hasJoined || isJoining ? {} : onJoin
@@ -702,6 +736,108 @@ private struct CTAFooter: View {
                 .overlay(Rectangle().frame(height: 1).foregroundColor(BullaTheme.Colors.line), alignment: .top)
         )
         .padding(.bottom, 16)
+    }
+}
+
+private struct AddReviewSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let eventTitle: String
+    let authorName: String
+    let onSubmit: (Int, String) -> Void
+
+    @State private var stars = 5
+    @State private var reviewText = ""
+
+    private var canSubmit: Bool {
+        !reviewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Agregar reseña")
+                        .font(BullaTheme.Font.heading(22))
+                        .foregroundColor(BullaTheme.Colors.ink)
+                    Text("Tu reseña para \(eventTitle)")
+                        .font(BullaTheme.Font.body(13))
+                        .foregroundColor(BullaTheme.Colors.textSecondary)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Calificación")
+                        .font(BullaTheme.Font.body(13, weight: .semibold))
+                        .foregroundColor(BullaTheme.Colors.ink)
+
+                    HStack(spacing: 8) {
+                        ForEach(1...5, id: \.self) { value in
+                            Button {
+                                stars = value
+                            } label: {
+                                Image(systemName: value <= stars ? "star.fill" : "star")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundColor(value <= stars ? BullaTheme.Colors.soon : BullaTheme.Colors.line)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Tu opinión")
+                        .font(BullaTheme.Font.body(13, weight: .semibold))
+                        .foregroundColor(BullaTheme.Colors.ink)
+
+                    TextEditor(text: $reviewText)
+                        .font(BullaTheme.Font.body(14))
+                        .foregroundColor(BullaTheme.Colors.ink)
+                        .frame(minHeight: 150)
+                        .padding(10)
+                        .background(BullaTheme.Colors.chipBg)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(BullaTheme.Colors.line, lineWidth: 1)
+                        )
+                }
+
+                HStack(spacing: 8) {
+                    BullaAvatar(initial: String(authorName.prefix(1)), size: 28)
+                    Text("Se publicará como \(authorName)")
+                        .font(BullaTheme.Font.body(12))
+                        .foregroundColor(BullaTheme.Colors.textSecondary)
+                }
+
+                VStack(spacing: 0) {
+                    BullaPrimaryButton(title: "Publicar reseña") {
+                        guard canSubmit else { return }
+                        onSubmit(stars, reviewText)
+                        dismiss()
+                    }
+                    .opacity(canSubmit ? 1 : 0.55)
+                    .disabled(!canSubmit)
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 40)
+
+                Spacer(minLength: 20)
+            }
+            .padding(.top, 28)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 24)
+            .background(Color(UIColor.systemGroupedBackground))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cancelar") {
+                        dismiss()
+                    }
+                    .foregroundColor(BullaTheme.Colors.brand)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

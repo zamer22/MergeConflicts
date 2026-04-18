@@ -72,6 +72,7 @@ struct LoginView: View {
                         Text("Entrar")
                             .font(BullaTheme.Font.heading(22))
                             .foregroundColor(BullaTheme.Colors.ink)
+                        Text("Ingresa con tu correo y contraseña")
                             .font(BullaTheme.Font.body(13))
                             .foregroundColor(BullaTheme.Colors.textSecondary)
                     }
