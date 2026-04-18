@@ -281,7 +281,6 @@ struct LiveDot: View {
 struct EventImagePlaceholder: View {
     var category: EventCategory = .fair
     var height: CGFloat = 120
-    var imageUrl: String? = nil
 
     var baseColor: Color {
         switch category {
@@ -296,24 +295,6 @@ struct EventImagePlaceholder: View {
     }
 
     var body: some View {
-        if let urlStr = imageUrl, let url = URL(string: urlStr) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    colorBlock
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: height)
-            .clipped()
-        } else {
-            colorBlock
-        }
-    }
-
-    private var colorBlock: some View {
         ZStack {
             baseColor
             LinearGradient(
