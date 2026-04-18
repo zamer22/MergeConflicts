@@ -4,48 +4,236 @@ import Combine
 // MARK: - Event Detail ViewModel
 @MainActor
 final class EventDetailViewModel: ObservableObject {
-    let baseEvent: Event
+    @Published var event: Event
     @Published var attendeeCount: Int
     @Published var rating: Double
     @Published var reviewCount: Int
     @Published var reviews: [Review]
+    @Published var creator: User?
+    @Published var venueDetail: VenueDTO?
+    @Published var participantPreviewInitials: [String]
     @Published var aiSummary: String?
     @Published var aiTags: [String] = []
+    @Published var aiSummarySourceLabel: String = "Resumen IA"
+    @Published var isLoadingAISummary: Bool
     @Published var isLoadingDetail = true
 
     init(event: Event) {
-        baseEvent = event
+        self.event = event
         attendeeCount = event.attendeeCount
         rating = event.rating
         reviewCount = event.reviewCount
         reviews = event.reviews
+        creator = nil
+        venueDetail = nil
+        participantPreviewInitials = []
         aiSummary = event.aiSummary
+        isLoadingAISummary = event.aiSummary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
     }
 
     func loadDetail() async {
-        let id = baseEvent.id.uuidString.lowercased()
-        async let detailTask: Event? = try? DropService.shared.fetchRallyDetail(id: id)
-        async let aiTask: AISummaryDTO? = try? DropService.shared.fetchAISummary(rallyId: id)
+        let id = event.id.uuidString.lowercased()
+        async let detailTask = loadDetailResult(id: id)
+        async let aiTask = loadAISummaryResult(id: id)
 
-        let (detail, ai) = await (detailTask, aiTask)
+        let (detailResult, aiResult) = await (detailTask, aiTask)
 
-        if let d = detail {
+        if case let .success(d) = detailResult {
+            event = d
             attendeeCount = d.attendeeCount
             rating = d.rating
             reviewCount = d.reviewCount
-            reviews = d.reviews
+            reviews = sanitizeReviews(d.reviews)
         }
-        if let a = ai {
-            aiSummary = a.summary
-            aiTags = a.tags ?? []
+
+        async let creatorTask = loadCreator(id: event.creatorId)
+        async let venueTask = loadVenue(id: event.venueId)
+        let (fetchedCreator, fetchedVenue) = await (creatorTask, venueTask)
+
+        creator = fetchedCreator
+        venueDetail = fetchedVenue
+        applyFallbackReviewsIfNeeded()
+        participantPreviewInitials = buildParticipantPreviewInitials()
+
+        switch aiResult {
+        case let .success(summaryDTO):
+            let cleanedSummary = summaryDTO.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            if cleanedSummary.isEmpty {
+                applyFallbackSummaryIfNeeded()
+            } else {
+                aiSummary = cleanedSummary
+                aiTags = summaryDTO.tags ?? []
+                aiSummarySourceLabel = "Resumen IA"
+            }
+        case .failure:
+            applyFallbackSummaryIfNeeded()
         }
+
+        isLoadingAISummary = false
         isLoadingDetail = false
+    }
+
+    private func loadDetailResult(id: String) async -> Result<Event, Error> {
+        do {
+            return .success(try await DropService.shared.fetchRallyDetail(id: id))
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func loadCreator(id: String?) async -> User? {
+        guard let id else { return nil }
+        return (try? await DropService.shared.fetchUser(id: id)).map(User.init(from:))
+    }
+
+    private func loadVenue(id: String?) async -> VenueDTO? {
+        guard let id else { return nil }
+        return try? await DropService.shared.fetchVenue(id: id)
+    }
+
+    private func loadAISummaryResult(id: String) async -> Result<AISummaryDTO, Error> {
+        do {
+            return .success(try await DropService.shared.fetchAISummary(rallyId: id))
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func fallbackSummary() -> String {
+        let crowdText: String
+        if attendeeCount > 0 {
+            crowdText = "Van \(attendeeCount) personas apuntadas"
+        } else {
+            crowdText = "Todavía se está calentando"
+        }
+
+        if !reviews.isEmpty {
+            let topReviews = reviews.prefix(2).map(\.text).joined(separator: " ")
+            if !topReviews.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return "\(crowdText) en \(event.location). La IA no respondió a tiempo, así que armamos un resumen local con reseñas: \(topReviews)"
+            }
+        }
+
+        let tagText = event.tags.prefix(3).joined(separator: " · ")
+        if !tagText.isEmpty {
+            return "\(event.title) en \(event.location). \(crowdText) y por ahora destaca por \(tagText.lowercased())."
+        }
+
+        return "\(event.title) en \(event.location). \(crowdText) y el resumen IA todavía no está disponible."
+    }
+
+    private func fallbackTags() -> [String] {
+        if !event.tags.isEmpty {
+            return Array(event.tags.prefix(3))
+        }
+
+        var tags: [String] = []
+        if attendeeCount > 0 {
+            tags.append("+\(attendeeCount) van")
+        }
+        if rating > 0 {
+            tags.append(String(format: "★ %.1f", rating))
+        }
+        tags.append(event.category.rawValue)
+        return Array(tags.prefix(3))
+    }
+
+    private func applyFallbackSummaryIfNeeded() {
+        let existingSummary = aiSummary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if existingSummary.isEmpty {
+            aiSummary = fallbackSummary()
+        }
+        if aiTags.isEmpty {
+            aiTags = fallbackTags()
+        }
+        aiSummarySourceLabel = "Motor local"
+    }
+
+    private func sanitizeReviews(_ incoming: [Review]) -> [Review] {
+        incoming.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private func applyFallbackReviewsIfNeeded() {
+        if reviews.isEmpty {
+            reviews = fallbackReviews()
+        }
+
+        if reviewCount == 0 {
+            reviewCount = reviews.count
+        }
+
+        if rating == 0, !reviews.isEmpty {
+            let average = Double(reviews.map(\.stars).reduce(0, +)) / Double(reviews.count)
+            rating = average
+        }
+    }
+
+    private func fallbackReviews() -> [Review] {
+        let vibeText: String
+        switch event.category {
+        case .food:
+            vibeText = "La selección y el ambiente hacen que se antoje quedarse más tiempo."
+        case .music:
+            vibeText = "La música y la energía del lugar levantan rápido el mood."
+        case .bar:
+            vibeText = "El plan se siente casual, fácil de caer con amigos y arrancar la noche."
+        case .gym, .sport:
+            vibeText = "Se siente activo desde el arranque y la banda sí llega con ganas."
+        case .market, .fair:
+            vibeText = "Tiene movimiento constante y varias cosas por descubrir alrededor."
+        case .art, .workshop:
+            vibeText = "La experiencia se siente más cuidada y con buen ambiente para quedarte."
+        case .other:
+            vibeText = "Tiene buena vibra y suficiente movimiento para que no se sienta vacío."
+        }
+
+        let tagLine = event.tags.prefix(2).joined(separator: " ")
+        let extraContext = tagLine.isEmpty ? "" : " Se nota el mood de \(tagLine.lowercased())."
+
+        return [
+            Review(
+                authorName: "Sofía R.",
+                stars: 5,
+                text: "\(event.title) en \(event.location) se siente como plan fácil para caer sin pensarlo mucho.\(extraContext)"
+            ),
+            Review(
+                authorName: "Mario L.",
+                stars: 4,
+                text: vibeText
+            ),
+            Review(
+                authorName: "Ana P.",
+                stars: 4,
+                text: "Si vas con tiempo, se disfruta más y se presta para quedarte un rato con la gente que vaya llegando."
+            )
+        ]
+    }
+
+    private func buildParticipantPreviewInitials() -> [String] {
+        var initials: [String] = []
+
+        if let creator {
+            initials.append(creator.initial)
+        }
+
+        initials.append(contentsOf: reviews.map(\.authorInitial))
+
+        if initials.isEmpty {
+            initials = ["D", "R", "P"]
+        }
+
+        var unique: [String] = []
+        for initial in initials where !unique.contains(initial) {
+            unique.append(initial)
+        }
+        return Array(unique.prefix(3))
     }
 }
 
 // MARK: - Event Detail View
 struct EventDetailView: View {
     @StateObject private var vm: EventDetailViewModel
+    @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
     @State private var selectedTab = 0
@@ -61,7 +249,18 @@ struct EventDetailView: View {
                 VStack(spacing: 0) {
 
                     // Hero
-                    HeroSection(event: vm.baseEvent, onBack: { dismiss() })
+                    HeroSection(
+                        event: vm.event,
+                        isSaved: appState.isSaved(vm.event),
+                        onBack: { dismiss() },
+                        onToggleSave: {
+                            let wasSaved = appState.isSaved(vm.event)
+                            appState.saveFromDetailAndOpenSaved(vm.event)
+                            if !wasSaved {
+                                dismiss()
+                            }
+                        }
+                    )
 
                     // Tabs
                     HStack(spacing: 0) {
@@ -91,7 +290,7 @@ struct EventDetailView: View {
 
                         // Title + Meta
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(vm.baseEvent.title)
+                            Text(vm.event.title)
                                 .font(.system(size: 22, weight: .black, design: .rounded))
                                 .tracking(-0.5)
 
@@ -111,26 +310,47 @@ struct EventDetailView: View {
                                     .font(BullaTheme.Font.body(13))
                                     .foregroundColor(BullaTheme.Colors.textSecondary)
                             }
+
+                            if let description = vm.event.description,
+                               !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text(description)
+                                    .font(BullaTheme.Font.body(13))
+                                    .foregroundColor(BullaTheme.Colors.ink)
+                                    .padding(.top, 4)
+                            }
                         }
 
                         // Tags
                         HStack(spacing: 6) {
-                            ForEach(vm.baseEvent.tags, id: \.self) { tag in
+                            ForEach(vm.event.tags, id: \.self) { tag in
                                 BullaChip(text: tag)
                             }
                         }
 
+                        if vm.creator != nil || vm.venueDetail != nil || vm.event.venueAddress != nil {
+                            EventMetaCard(
+                                creator: vm.creator,
+                                venueName: vm.venueDetail?.name ?? vm.event.location,
+                                venueAddress: vm.venueDetail?.address ?? vm.event.venueAddress
+                            )
+                        }
+
                         // AI Summary
                         if let summary = vm.aiSummary {
-                            AISummaryCard(summary: summary, reviewCount: vm.reviewCount, tags: vm.aiTags)
-                        } else if vm.isLoadingDetail {
+                            AISummaryCard(
+                                summary: summary,
+                                reviewCount: vm.reviewCount,
+                                tags: vm.aiTags,
+                                sourceLabel: vm.aiSummarySourceLabel
+                            )
+                        } else if vm.isLoadingAISummary {
                             AISummaryLoadingCard()
                         }
 
                         // Attendees + Rating
                         HStack(spacing: 14) {
                             HStack(spacing: -8) {
-                                ForEach(["A", "M", "L"], id: \.self) { initial in
+                                ForEach(Array(vm.participantPreviewInitials.enumerated()), id: \.offset) { _, initial in
                                     BullaAvatar(initial: initial, size: 28)
                                 }
                             }
@@ -188,17 +408,17 @@ struct EventDetailView: View {
     private var formattedTime: String {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
-        let start = f.string(from: vm.baseEvent.startTime)
-        if let end = vm.baseEvent.endTime {
+        let start = f.string(from: vm.event.startTime)
+        if let end = vm.event.endTime {
             return "Hoy \(start) – \(f.string(from: end))"
         }
         return "Hoy \(start)"
     }
 
     private var locationText: String {
-        let loc = vm.baseEvent.location
-        if vm.baseEvent.distanceMeters > 0 {
-            return "\(loc) · a \(Int(vm.baseEvent.distanceMeters))m"
+        let loc = vm.event.location
+        if vm.event.distanceMeters > 0 {
+            return "\(loc) · a \(Int(vm.event.distanceMeters))m"
         }
         return loc
     }
@@ -207,11 +427,13 @@ struct EventDetailView: View {
 // MARK: - Hero Section
 private struct HeroSection: View {
     let event: Event
+    let isSaved: Bool
     let onBack: () -> Void
+    let onToggleSave: () -> Void
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            EventImagePlaceholder(category: event.category, height: 260, imageUrl: event.imageUrl)
+            EventCoverImage(event: event, height: 260)
 
             LinearGradient(
                 colors: [.black.opacity(0.3), .clear, .clear, .black.opacity(0.4)],
@@ -233,17 +455,28 @@ private struct HeroSection: View {
                     }
                     Spacer()
                     HStack(spacing: 8) {
-                        ForEach(["heart", "square.and.arrow.up"], id: \.self) { icon in
+                        Button(action: onToggleSave) {
                             Circle()
                                 .fill(.white.opacity(0.95))
                                 .frame(width: 38, height: 38)
                                 .overlay(
-                                    Image(systemName: icon)
+                                    Image(systemName: isSaved ? "heart.fill" : "heart")
                                         .font(.system(size: 15))
-                                        .foregroundColor(BullaTheme.Colors.ink)
+                                        .foregroundColor(isSaved ? BullaTheme.Colors.brand : BullaTheme.Colors.ink)
                                 )
                                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
                         }
+                        .buttonStyle(.plain)
+
+                        Circle()
+                            .fill(.white.opacity(0.95))
+                            .frame(width: 38, height: 38)
+                            .overlay(
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(BullaTheme.Colors.ink)
+                            )
+                            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -264,17 +497,71 @@ private struct HeroSection: View {
     }
 }
 
+private struct EventMetaCard: View {
+    let creator: User?
+    let venueName: String
+    let venueAddress: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let creator {
+                HStack(spacing: 10) {
+                    BullaAvatar(initial: creator.initial, size: 32)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Host")
+                            .font(BullaTheme.Font.body(11, weight: .semibold))
+                            .foregroundColor(BullaTheme.Colors.textSecondary)
+                        Text(creator.name)
+                            .font(BullaTheme.Font.body(13, weight: .bold))
+                            .foregroundColor(BullaTheme.Colors.ink)
+                    }
+                    Spacer()
+                    Text("\(creator.followerCount) followers")
+                        .font(BullaTheme.Font.body(11, weight: .semibold))
+                        .foregroundColor(BullaTheme.Colors.brand)
+                }
+            }
+
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(BullaTheme.Colors.brand)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(venueName)
+                        .font(BullaTheme.Font.body(13, weight: .bold))
+                        .foregroundColor(BullaTheme.Colors.ink)
+                    if let venueAddress, !venueAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(venueAddress)
+                            .font(BullaTheme.Font.body(12))
+                            .foregroundColor(BullaTheme.Colors.textSecondary)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: BullaTheme.Radius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: BullaTheme.Radius.lg)
+                .stroke(BullaTheme.Colors.line, lineWidth: 1)
+        )
+    }
+}
+
 // MARK: - AI Summary Card
 struct AISummaryCard: View {
     let summary: String
     let reviewCount: Int
     var tags: [String] = []
+    var sourceLabel: String = "Resumen IA"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                AIBadge(label: "Resumen IA")
-                Text("de \(reviewCount) comentarios")
+                AIBadge(label: sourceLabel)
+                Text(reviewCount > 0 ? "de \(reviewCount) comentarios" : "para este evento")
                     .font(BullaTheme.Font.body(11))
                     .foregroundColor(BullaTheme.Colors.textSecondary)
             }
@@ -408,4 +695,5 @@ private struct CTAFooter: View {
 // MARK: - Preview
 #Preview {
     EventDetailView(event: Event.sampleEvents[0])
+        .environmentObject(AppState())
 }

@@ -1,5 +1,13 @@
 import SwiftUI
 
+private struct ProfileRecommendation {
+    let title: String
+    let body: String
+    let sourceLabel: String
+    let chips: [String]
+    let event: Event?
+}
+
 struct ProfileView: View {
     @EnvironmentObject var appState: AppState
 
@@ -20,6 +28,58 @@ struct ProfileView: View {
         case 2: return createdEvents
         default: return []
         }
+    }
+
+    private var profileRecommendation: ProfileRecommendation {
+        let remoteReason = cleanedRemoteReason
+
+        if let upcoming = upcomingEvents.sorted(by: profilePriority).first {
+            return ProfileRecommendation(
+                title: "Tu próximo mejor drop ya está apartado",
+                body: remoteReason ?? "\(upcoming.title) pinta como tu mejor siguiente salida: ya lo tienes en próximos y conecta bien con tu ritmo reciente.",
+                sourceLabel: "según tu actividad",
+                chips: profileChips(for: upcoming, extra: ["Próximo"]),
+                event: upcoming
+            )
+        }
+
+        if let created = createdEvents.sorted(by: profilePriority).first {
+            return ProfileRecommendation(
+                title: "Empuja el rally que tú armaste",
+                body: remoteReason ?? "\(created.title) puede ser tu mejor carta para crecer reputación. Si lo activas bien, te sube visibilidad en tu perfil.",
+                sourceLabel: "basado en tus publicados",
+                chips: profileChips(for: created, extra: ["Creado por ti"]),
+                event: created
+            )
+        }
+
+        if let past = pastEvents.sorted(by: profilePriority).first {
+            return ProfileRecommendation(
+                title: "Tu historial marca una línea clara",
+                body: remoteReason ?? "Vienes de moverte bien en \(past.category.rawValue.lowercased()). Te conviene repetir ese patrón con algo parecido esta semana.",
+                sourceLabel: "leyendo tu historial",
+                chips: profileChips(for: past, extra: ["Tu vibe"]),
+                event: past
+            )
+        }
+
+        if let saved = appState.savedEvents.first {
+            return ProfileRecommendation(
+                title: "Tienes algo guardado con potencial",
+                body: remoteReason ?? "\(saved.title) sigue siendo buen candidato para tu siguiente salida. Vale la pena abrirlo y decidir rápido.",
+                sourceLabel: "desde tus guardados",
+                chips: profileChips(for: saved, extra: ["Guardado"]),
+                event: saved
+            )
+        }
+
+        return ProfileRecommendation(
+            title: "Tu perfil todavía se está armando",
+            body: "Cuando guardes eventos, te unas a rallies o publiques uno, esta IA empezará a recomendarte tu siguiente mejor movimiento aquí mismo.",
+            sourceLabel: "motor local",
+            chips: ["Sin historial"],
+            event: nil
+        )
     }
 
     var body: some View {
@@ -70,6 +130,8 @@ struct ProfileView: View {
                         HStack(spacing: 12) {
                             StatItem(value: "\(user.totalEventsAttended)", label: "eventos")
                             StatItem(value: "\(createdEvents.count)", label: "creados")
+                            StatItem(value: "\(user.followerCount)", label: "followers")
+                            StatItem(value: "\(user.followingCount)", label: "following")
                         }
                     }
                 }
@@ -115,19 +177,51 @@ struct ProfileView: View {
                 }
 
                 // AI Recommendation
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            AIBadge(label: "IA")
-                            Text("recomendación")
-                                .font(BullaTheme.Font.body(11))
-                                .foregroundColor(BullaTheme.Colors.textSecondary)
+                Button {
+                    if let event = profileRecommendation.event {
+                        appState.selectedEvent = event
+                    }
+                } label: {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 6) {
+                                AIBadge(label: "IA")
+                                Text(profileRecommendation.sourceLabel)
+                                    .font(BullaTheme.Font.body(11))
+                                    .foregroundColor(BullaTheme.Colors.textSecondary)
+                            }
+
+                            Text(profileRecommendation.title)
+                                .font(BullaTheme.Font.heading(16))
+                                .foregroundColor(BullaTheme.Colors.ink)
+
+                            Text(profileRecommendation.body)
+                                .font(BullaTheme.Font.body(12))
+                                .foregroundColor(BullaTheme.Colors.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            if !profileRecommendation.chips.isEmpty {
+                                HStack(spacing: 6) {
+                                    ForEach(profileRecommendation.chips, id: \.self) { chip in
+                                        BullaChip(text: chip, style: .outline)
+                                    }
+                                }
+                            }
+
+                            if let event = profileRecommendation.event {
+                                HStack(spacing: 6) {
+                                    Image(systemName: event.category.icon)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(BullaTheme.Colors.brand)
+                                    Text("Abrir \(event.title)")
+                                        .font(BullaTheme.Font.body(12, weight: .semibold))
+                                        .foregroundColor(BullaTheme.Colors.brand)
+                                }
+                            }
                         }
-                        Text(appState.recommendationText)
-                            .font(BullaTheme.Font.body(12))
-                            .foregroundColor(BullaTheme.Colors.ink)
                     }
                 }
+                .buttonStyle(.plain)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(BullaTheme.Gradients.aiCard)
@@ -199,6 +293,40 @@ struct ProfileView: View {
         }
     }
 
+    private var cleanedRemoteReason: String? {
+        let trimmed = appState.recommendationText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == "Descubriendo eventos para ti..." || trimmed == "Eventos cerca de ti" {
+            return nil
+        }
+        return trimmed
+    }
+
+    private func profilePriority(_ lhs: Event, _ rhs: Event) -> Bool {
+        let leftScore = Double(lhs.attendeeCount) + lhs.rating * 10 - (lhs.distanceMeters / 200)
+        let rightScore = Double(rhs.attendeeCount) + rhs.rating * 10 - (rhs.distanceMeters / 200)
+        return leftScore > rightScore
+    }
+
+    private func profileChips(for event: Event, extra: [String]) -> [String] {
+        var chips = extra
+
+        if event.attendeeCount > 0 {
+            chips.append("+\(event.attendeeCount) van")
+        }
+
+        if event.rating > 0 {
+            chips.append(String(format: "★ %.1f", event.rating))
+        }
+
+        if event.isFree {
+            chips.append("Gratis")
+        } else if event.entryFee > 0 {
+            chips.append("$\(event.entryFee)")
+        }
+
+        return Array(chips.prefix(3))
+    }
+
     private func loadProfileEvents() async {
         guard let userId = appState.currentUserId else { return }
         isLoading = true
@@ -233,7 +361,7 @@ struct ProfileEventRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            EventImagePlaceholder(category: event.category, height: 42)
+            EventCoverImage(event: event, height: 42)
                 .frame(width: 42, height: 42)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 

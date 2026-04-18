@@ -52,6 +52,7 @@ struct MainTabView: View {
         }
         .sheet(item: $appState.selectedEvent) { event in
             EventDetailView(event: event)
+                .environmentObject(appState)
         }
     }
 }
@@ -97,7 +98,7 @@ struct SavedView: View {
                         ForEach(appState.savedEvents) { event in
                             Button { appState.selectedEvent = event } label: {
                                 HStack(spacing: 10) {
-                                    EventImagePlaceholder(category: event.category, height: 48)
+                                    EventCoverImage(event: event, height: 48)
                                         .frame(width: 48, height: 48)
                                         .clipShape(RoundedRectangle(cornerRadius: 10))
                                     VStack(alignment: .leading, spacing: 2) {
@@ -181,6 +182,7 @@ struct BullaApp: App {
 
 #Preview("Detalle") {
     EventDetailView(event: Event.sampleEvents[0])
+        .environmentObject(AppState())
 }
 
 #Preview("Crear evento") {

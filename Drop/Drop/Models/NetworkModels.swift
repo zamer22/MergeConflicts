@@ -265,6 +265,10 @@ final class DropService {
         return try await api.get("/users/\(id)")
     }
 
+    func fetchVenue(id: String) async throws -> VenueDTO {
+        return try await api.get("/venues/\(id)")
+    }
+
     func fetchUpcoming(userId: String) async throws -> [Event] {
         let dtos: [RallyDTO] = try await api.get("/users/\(userId)/upcoming")
         return dtos.map { Event(from: $0, userLocation: nil) }
