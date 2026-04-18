@@ -241,11 +241,7 @@ struct FeedView: View {
     private func recommendationChips(for event: Event, extra: [String]) -> [String] {
         var chips = extra
 
-        if event.isFree {
-            chips.append("Gratis")
-        } else if event.entryFee > 0 {
-            chips.append("$\(event.entryFee)")
-        }
+        chips.append("Gratis")
 
         if event.attendeeCount > 0 {
             chips.append("+\(event.attendeeCount) van")
@@ -479,15 +475,9 @@ struct FeedEventCard: View {
                         BullaChip(text: tag, style: .default)
                     }
                     Spacer()
-                    if event.entryFee > 0 {
-                        Text("$\(event.entryFee)")
-                            .font(BullaTheme.Font.body(11, weight: .bold))
-                            .foregroundColor(BullaTheme.Colors.ink)
-                    } else {
-                        Text("Gratis")
-                            .font(BullaTheme.Font.body(11, weight: .bold))
-                            .foregroundColor(BullaTheme.Colors.live)
-                    }
+                    Text("Gratis")
+                        .font(BullaTheme.Font.body(11, weight: .bold))
+                        .foregroundColor(BullaTheme.Colors.live)
                     HStack(spacing: 3) {
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 10))

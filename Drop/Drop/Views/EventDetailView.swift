@@ -17,6 +17,9 @@ final class EventDetailViewModel: ObservableObject {
     @Published var aiSummarySourceLabel: String = "Resumen IA"
     @Published var isLoadingAISummary: Bool
     @Published var isLoadingDetail = true
+    @Published var isJoining = false
+    @Published var hasJoined = false
+    @Published var joinError: String? = nil
 
     init(event: Event) {
         self.event = event
@@ -71,6 +74,20 @@ final class EventDetailViewModel: ObservableObject {
 
         isLoadingAISummary = false
         isLoadingDetail = false
+    }
+
+    func join(userId: String) async {
+        guard !isJoining, !hasJoined else { return }
+        isJoining = true
+        joinError = nil
+        do {
+            try await DropService.shared.joinRally(rallyId: event.id.uuidString.lowercased(), userId: userId)
+            hasJoined = true
+            attendeeCount += 1
+        } catch {
+            joinError = error.localizedDescription
+        }
+        isJoining = false
     }
 
     private func loadDetailResult(id: String) async -> Result<Event, Error> {
@@ -235,9 +252,7 @@ struct EventDetailView: View {
     @StateObject private var vm: EventDetailViewModel
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
-
-    @State private var selectedTab = 0
-    let tabs = ["Info", "Fotos"]
+    @State private var showJoinError = false
 
     init(event: Event) {
         _vm = StateObject(wrappedValue: EventDetailViewModel(event: event))
@@ -261,30 +276,6 @@ struct EventDetailView: View {
                             }
                         }
                     )
-
-                    // Tabs
-                    HStack(spacing: 0) {
-                        ForEach(Array(tabs.enumerated()), id: \.offset) { i, tab in
-                            Button(action: { selectedTab = i }) {
-                                VStack(spacing: 0) {
-                                    Text(tab)
-                                        .font(BullaTheme.Font.body(14, weight: selectedTab == i ? .bold : .medium))
-                                        .foregroundColor(selectedTab == i ? BullaTheme.Colors.ink : BullaTheme.Colors.textSecondary)
-                                        .padding(.vertical, 12)
-                                        .padding(.horizontal, 14)
-
-                                    Rectangle()
-                                        .fill(selectedTab == i ? BullaTheme.Colors.brand : .clear)
-                                        .frame(height: 2.5)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        Spacer()
-                    }
-                    .overlay(alignment: .bottom) {
-                        Rectangle().fill(BullaTheme.Colors.line).frame(height: 1)
-                    }
 
                     VStack(alignment: .leading, spacing: 16) {
 
@@ -399,10 +390,29 @@ struct EventDetailView: View {
             .ignoresSafeArea(edges: .top)
 
             // CTA Footer
-            CTAFooter()
+            CTAFooter(
+                isJoining: vm.isJoining,
+                hasJoined: vm.hasJoined,
+                onJoin: {
+                    guard let userId = appState.currentUserId else {
+                        vm.joinError = "Inicia sesión para unirte"
+                        showJoinError = true
+                        return
+                    }
+                    Task {
+                        await vm.join(userId: userId)
+                        if vm.joinError != nil { showJoinError = true }
+                    }
+                }
+            )
         }
         .navigationBarHidden(true)
         .task { await vm.loadDetail() }
+        .alert("No se pudo unir", isPresented: $showJoinError) {
+            Button("OK") { showJoinError = false }
+        } message: {
+            Text(vm.joinError ?? "Intenta de nuevo")
+        }
     }
 
     private var formattedTime: String {
@@ -666,20 +676,23 @@ struct ReviewRow: View {
 
 // MARK: - CTA Footer
 private struct CTAFooter: View {
+    let isJoining: Bool
+    let hasJoined: Bool
+    let onJoin: () -> Void
+
+    private var buttonTitle: String {
+        if isJoining { return "Uniéndome..." }
+        if hasJoined { return "¡Ya estás dentro! ✓" }
+        return "Unirme · Gratis"
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             BullaSecondaryButton(title: "Chat", icon: "bubble.left")
-            BullaPrimaryButton(title: "Unirme")
-            Button(action: {}) {
-                Circle()
-                    .stroke(BullaTheme.Colors.line, lineWidth: 1)
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        Image(systemName: "person.badge.plus")
-                            .font(.system(size: 15))
-                            .foregroundColor(BullaTheme.Colors.ink)
-                    )
-            }
+            BullaPrimaryButton(
+                title: buttonTitle,
+                action: hasJoined || isJoining ? {} : onJoin
+            )
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
