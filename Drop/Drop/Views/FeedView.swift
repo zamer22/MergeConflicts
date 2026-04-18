@@ -478,17 +478,6 @@ struct FeedEventCard: View {
                     Text("Gratis")
                         .font(BullaTheme.Font.body(11, weight: .bold))
                         .foregroundColor(BullaTheme.Colors.live)
-                    HStack(spacing: 3) {
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 10))
-                            .foregroundColor(BullaTheme.Colors.textSecondary)
-                        Text("\(event.attendeeCount)")
-                            .font(BullaTheme.Font.body(11, weight: .bold))
-                            .foregroundColor(BullaTheme.Colors.ink)
-                        Text("van")
-                            .font(BullaTheme.Font.body(11))
-                            .foregroundColor(BullaTheme.Colors.textSecondary)
-                    }
                 }
             }
             .padding(12)
