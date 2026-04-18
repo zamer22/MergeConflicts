@@ -10,6 +10,8 @@ enum EventCategory: String, CaseIterable, Identifiable {
     case sport = "Deporte"
     case market = "Mercado"
     case workshop = "Taller"
+    case bar = "Bar"
+    case gym = "Gym"
     case other = "Otro"
 
     var id: String { rawValue }
@@ -23,8 +25,29 @@ enum EventCategory: String, CaseIterable, Identifiable {
         case .sport: return "🏃"
         case .market: return "🛒"
         case .workshop: return "📚"
+        case .bar: return "🍺"
+        case .gym: return "💪"
         case .other: return "＋"
         }
+    }
+
+    var backendKey: String {
+        switch self {
+        case .music: return "musica"
+        case .fair: return "feria"
+        case .art: return "arte"
+        case .food: return "comida"
+        case .sport: return "deporte"
+        case .market: return "mercado"
+        case .workshop: return "taller"
+        case .bar: return "bar"
+        case .gym: return "gym"
+        case .other: return "otro"
+        }
+    }
+
+    static func from(backendKey: String) -> EventCategory {
+        return EventCategory.allCases.first { $0.backendKey == backendKey } ?? .other
     }
 }
 
@@ -87,6 +110,38 @@ struct Event: Identifiable {
         self.aiSummary = aiSummary
         self.reviews = reviews
     }
+
+    // Mapeo desde el DTO del backend
+    init(from dto: RallyDTO, userLocation: CLLocation?) {
+        self.id = UUID(uuidString: dto.id) ?? UUID()
+        self.title = dto.title
+        self.category = EventCategory.from(backendKey: dto.category ?? "otro")
+        self.location = dto.venues?.name ?? dto.venues?.address ?? "Monterrey, MX"
+        self.startTime = dto.startsAt
+        self.endTime = dto.expiresAt
+        self.isFree = (dto.entryFee ?? 0) == 0
+        self.tags = dto.tags ?? []
+        self.attendeeCount = 0
+        self.rating = 0
+        self.reviewCount = 0
+        self.aiSummary = nil
+        self.reviews = []
+
+        if let userLoc = userLocation {
+            let rallyLoc = CLLocation(latitude: dto.lat, longitude: dto.lng)
+            self.distanceMeters = userLoc.distance(from: rallyLoc)
+        } else {
+            self.distanceMeters = 0
+        }
+
+        let now = Date()
+        if dto.startsAt <= now {
+            self.status = .live
+        } else {
+            let minutes = Int(dto.startsAt.timeIntervalSince(now) / 60)
+            self.status = .upcoming(minutesAway: minutes)
+        }
+    }
 }
 
 // MARK: - Review Model
@@ -103,6 +158,14 @@ struct Review: Identifiable {
         self.authorInitial = String(authorName.prefix(1))
         self.stars = stars
         self.text = text
+    }
+
+    init(from dto: ReviewDTO) {
+        self.id = UUID(uuidString: dto.id) ?? UUID()
+        self.authorName = dto.users?.username ?? "Anónimo"
+        self.authorInitial = String((dto.users?.username ?? "A").prefix(1))
+        self.stars = dto.stars
+        self.text = dto.text ?? ""
     }
 }
 

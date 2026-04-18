@@ -33,7 +33,7 @@ def get_active_rallies(
     now = datetime.utcnow().isoformat()
     q = (
         supabase.table("rallies")
-        .select("*")
+        .select("*, venues(name, address)")
         .eq("status", "active")
         .gt("expires_at", now)
         .order("expires_at", desc=False)

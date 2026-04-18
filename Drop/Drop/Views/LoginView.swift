@@ -142,15 +142,12 @@ struct LoginView: View {
                         .overlay(Capsule().stroke(.white.opacity(0.15), lineWidth: 1))
                     }
 
-                    // Register
-                    HStack(spacing: 4) {
-                        Text("¿No tienes cuenta?")
-                            .foregroundColor(.white.opacity(0.5))
-                        Button("Regístrate gratis") {}
-                            .foregroundColor(BullaTheme.Colors.brand)
-                            .fontWeight(.semibold)
+                    // Demo rápido
+                    Button("Entrar como demo →") {
+                        appState.login(email: "demo@drop.app", password: "")
                     }
                     .font(BullaTheme.Font.body(14))
+                    .foregroundColor(.white.opacity(0.4))
                 }
                 .padding(24)
                 .background(

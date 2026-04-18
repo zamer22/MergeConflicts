@@ -74,7 +74,7 @@ struct FeedView: View {
                     .padding(.bottom, 14)
 
                     // AI "Para ti"
-                    AIRecommendationCard()
+                    AIRecommendationCard(text: appState.recommendationText)
                         .padding(.horizontal, BullaTheme.Spacing.lg)
                         .padding(.bottom, 16)
 
@@ -145,6 +145,8 @@ struct LiveStoryItem: View {
 
 // MARK: - AI Recommendation Card
 struct AIRecommendationCard: View {
+    var text: String = "Descubriendo eventos para ti..."
+
     var body: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
@@ -154,7 +156,7 @@ struct AIRecommendationCard: View {
                         .font(BullaTheme.Font.body(11))
                         .foregroundColor(BullaTheme.Colors.textSecondary)
                 }
-                Text("**3 ferias de diseño** este fin de semana · te podrían interesar")
+                Text(text)
                     .font(BullaTheme.Font.body(13))
                     .foregroundColor(BullaTheme.Colors.ink)
             }

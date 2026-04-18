@@ -1,11 +1,59 @@
 import SwiftUI
+import Combine
 
+// MARK: - Event Detail ViewModel
+@MainActor
+final class EventDetailViewModel: ObservableObject {
+    let baseEvent: Event
+    @Published var attendeeCount: Int
+    @Published var rating: Double
+    @Published var reviewCount: Int
+    @Published var reviews: [Review]
+    @Published var aiSummary: String?
+    @Published var aiTags: [String] = []
+    @Published var isLoadingDetail = true
+
+    init(event: Event) {
+        baseEvent = event
+        attendeeCount = event.attendeeCount
+        rating = event.rating
+        reviewCount = event.reviewCount
+        reviews = event.reviews
+        aiSummary = event.aiSummary
+    }
+
+    func loadDetail() async {
+        let id = baseEvent.id.uuidString.lowercased()
+        async let detailTask: Event? = try? DropService.shared.fetchRallyDetail(id: id)
+        async let aiTask: AISummaryDTO? = try? DropService.shared.fetchAISummary(rallyId: id)
+
+        let (detail, ai) = await (detailTask, aiTask)
+
+        if let d = detail {
+            attendeeCount = d.attendeeCount
+            rating = d.rating
+            reviewCount = d.reviewCount
+            reviews = d.reviews
+        }
+        if let a = ai {
+            aiSummary = a.summary
+            aiTags = a.tags ?? []
+        }
+        isLoadingDetail = false
+    }
+}
+
+// MARK: - Event Detail View
 struct EventDetailView: View {
-    let event: Event
+    @StateObject private var vm: EventDetailViewModel
     @Environment(\.dismiss) var dismiss
 
     @State private var selectedTab = 0
     let tabs = ["Info", "Fotos"]
+
+    init(event: Event) {
+        _vm = StateObject(wrappedValue: EventDetailViewModel(event: event))
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -13,7 +61,7 @@ struct EventDetailView: View {
                 VStack(spacing: 0) {
 
                     // Hero
-                    HeroSection(event: event, onBack: { dismiss() })
+                    HeroSection(event: vm.baseEvent, onBack: { dismiss() })
 
                     // Tabs
                     HStack(spacing: 0) {
@@ -43,7 +91,7 @@ struct EventDetailView: View {
 
                         // Title + Meta
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(event.title)
+                            Text(vm.baseEvent.title)
                                 .font(.system(size: 22, weight: .black, design: .rounded))
                                 .tracking(-0.5)
 
@@ -51,7 +99,7 @@ struct EventDetailView: View {
                                 Image(systemName: "calendar")
                                     .font(.system(size: 12))
                                     .foregroundColor(BullaTheme.Colors.textSecondary)
-                                Text("Hoy 10:00 – 22:00")
+                                Text(formattedTime)
                                     .font(BullaTheme.Font.body(13))
                                     .foregroundColor(BullaTheme.Colors.textSecondary)
                             }
@@ -59,7 +107,7 @@ struct EventDetailView: View {
                                 Image(systemName: "location.fill")
                                     .font(.system(size: 12))
                                     .foregroundColor(BullaTheme.Colors.textSecondary)
-                                Text("\(event.location) · a \(Int(event.distanceMeters))m")
+                                Text(locationText)
                                     .font(BullaTheme.Font.body(13))
                                     .foregroundColor(BullaTheme.Colors.textSecondary)
                             }
@@ -67,25 +115,26 @@ struct EventDetailView: View {
 
                         // Tags
                         HStack(spacing: 6) {
-                            ForEach(event.tags, id: \.self) { tag in
+                            ForEach(vm.baseEvent.tags, id: \.self) { tag in
                                 BullaChip(text: tag)
                             }
                         }
 
                         // AI Summary
-                        if let summary = event.aiSummary {
-                            AISummaryCard(summary: summary, reviewCount: event.reviewCount)
+                        if let summary = vm.aiSummary {
+                            AISummaryCard(summary: summary, reviewCount: vm.reviewCount, tags: vm.aiTags)
+                        } else if vm.isLoadingDetail {
+                            AISummaryLoadingCard()
                         }
 
                         // Attendees + Rating
                         HStack(spacing: 14) {
-                            // Avatars
                             HStack(spacing: -8) {
                                 ForEach(["A", "M", "L"], id: \.self) { initial in
                                     BullaAvatar(initial: initial, size: 28)
                                 }
                             }
-                            Text("+\(event.attendeeCount) van")
+                            Text("+\(vm.attendeeCount) van")
                                 .font(BullaTheme.Font.body(12))
                                 .foregroundColor(BullaTheme.Colors.textSecondary)
                                 .bold()
@@ -95,9 +144,9 @@ struct EventDetailView: View {
                             HStack(spacing: 3) {
                                 Text("★")
                                     .foregroundColor(BullaTheme.Colors.soon)
-                                Text(String(format: "%.1f", event.rating))
+                                Text(String(format: "%.1f", vm.rating))
                                     .font(BullaTheme.Font.body(14, weight: .bold))
-                                Text("· \(event.reviewCount) opiniones")
+                                Text("· \(vm.reviewCount) opiniones")
                                     .font(BullaTheme.Font.body(12))
                                     .foregroundColor(BullaTheme.Colors.textSecondary)
                             }
@@ -111,8 +160,14 @@ struct EventDetailView: View {
                                 .font(BullaTheme.Font.heading(15))
                                 .padding(.bottom, 6)
 
-                            ForEach(event.reviews) { review in
-                                ReviewRow(review: review)
+                            if vm.reviews.isEmpty && vm.isLoadingDetail {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                            } else {
+                                ForEach(vm.reviews) { review in
+                                    ReviewRow(review: review)
+                                }
                             }
                         }
                     }
@@ -127,6 +182,25 @@ struct EventDetailView: View {
             CTAFooter()
         }
         .navigationBarHidden(true)
+        .task { await vm.loadDetail() }
+    }
+
+    private var formattedTime: String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        let start = f.string(from: vm.baseEvent.startTime)
+        if let end = vm.baseEvent.endTime {
+            return "Hoy \(start) – \(f.string(from: end))"
+        }
+        return "Hoy \(start)"
+    }
+
+    private var locationText: String {
+        let loc = vm.baseEvent.location
+        if vm.baseEvent.distanceMeters > 0 {
+            return "\(loc) · a \(Int(vm.baseEvent.distanceMeters))m"
+        }
+        return loc
     }
 }
 
@@ -139,13 +213,11 @@ private struct HeroSection: View {
         ZStack(alignment: .bottom) {
             EventImagePlaceholder(category: event.category, height: 260)
 
-            // Gradient overlay
             LinearGradient(
                 colors: [.black.opacity(0.3), .clear, .clear, .black.opacity(0.4)],
                 startPoint: .top, endPoint: .bottom
             )
 
-            // Top buttons
             VStack {
                 HStack {
                     Button(action: onBack) {
@@ -179,7 +251,6 @@ private struct HeroSection: View {
                 Spacer()
             }
 
-            // Bottom chips
             HStack(spacing: 6) {
                 BullaChip(text: "● EN VIVO", style: .live)
                 BullaChip(text: "Gratis", style: .default)
@@ -197,6 +268,7 @@ private struct HeroSection: View {
 struct AISummaryCard: View {
     let summary: String
     let reviewCount: Int
+    var tags: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -212,19 +284,18 @@ struct AISummaryCard: View {
                 .foregroundColor(BullaTheme.Colors.ink)
                 .lineSpacing(3)
 
-            HStack(spacing: 6) {
-                ForEach([
-                    ("+ variedad", true),
-                    ("+ ambiente", true),
-                    ("– precios", false)
-                ], id: \.0) { label, positive in
-                    Text(label)
-                        .font(BullaTheme.Font.body(10, weight: .semibold))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 3)
-                        .background(positive ? Color(hex: "#DCFCE7") : Color(hex: "#FEF3C7"))
-                        .foregroundColor(positive ? Color(hex: "#166534") : Color(hex: "#854D0E"))
-                        .clipShape(Capsule())
+            if !tags.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(tags.prefix(3), id: \.self) { tag in
+                        let positive = tag.hasPrefix("+")
+                        Text(tag)
+                            .font(BullaTheme.Font.body(10, weight: .semibold))
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .background(positive ? Color(hex: "#DCFCE7") : Color(hex: "#FEF3C7"))
+                            .foregroundColor(positive ? Color(hex: "#166534") : Color(hex: "#854D0E"))
+                            .clipShape(Capsule())
+                    }
                 }
             }
         }
@@ -236,6 +307,28 @@ struct AISummaryCard: View {
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
         )
+        .clipShape(RoundedRectangle(cornerRadius: BullaTheme.Radius.lg))
+        .overlay(
+            RoundedRectangle(cornerRadius: BullaTheme.Radius.lg)
+                .stroke(Color(hex: "#E9D5FF"), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - AI Summary Loading Card
+struct AISummaryLoadingCard: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            AIBadge(label: "Resumen IA")
+            Text("Generando resumen...")
+                .font(BullaTheme.Font.body(12))
+                .foregroundColor(BullaTheme.Colors.textSecondary)
+            Spacer()
+            ProgressView().scaleEffect(0.8)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(BullaTheme.Gradients.aiCard)
         .clipShape(RoundedRectangle(cornerRadius: BullaTheme.Radius.lg))
         .overlay(
             RoundedRectangle(cornerRadius: BullaTheme.Radius.lg)

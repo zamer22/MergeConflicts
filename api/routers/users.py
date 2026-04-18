@@ -31,10 +31,10 @@ def create_user(body: CreateUserBody):
 
 @router.get("/{user_id}")
 def get_user(user_id: str):
-    res = supabase.table("users").select("*").eq("id", user_id).single().execute()
+    res = supabase.table("users").select("*").eq("id", user_id).limit(1).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return res.data
+    return res.data[0]
 
 
 @router.patch("/{user_id}")
@@ -124,8 +124,8 @@ def get_created(user_id: str):
 
 @router.get("/{user_id}/recommendations")
 def get_recommendations(user_id: str):
-    user_res = supabase.table("users").select("interests").eq("id", user_id).single().execute()
-    interests = user_res.data.get("interests", []) if user_res.data else []
+    user_res = supabase.table("users").select("interests").eq("id", user_id).limit(1).execute()
+    interests = user_res.data[0].get("interests") or [] if user_res.data else []
 
     now = datetime.utcnow().isoformat()
     q = (

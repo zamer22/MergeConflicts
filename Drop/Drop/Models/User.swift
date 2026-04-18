@@ -40,6 +40,20 @@ struct User: Identifiable {
         self.totalEventsAttended = totalEventsAttended
     }
 
+    init(from dto: UserDTO) {
+        self.id = UUID(uuidString: dto.id) ?? UUID()
+        self.name = dto.username
+        self.username = dto.username
+        self.location = dto.locationLabel ?? "México"
+        self.interests = (dto.interests ?? []).map { EventCategory.from(backendKey: $0) }
+        self.upcomingEvents = []
+        self.pastEvents = []
+        self.publishedEvents = []
+        self.followerCount = dto.followersCount ?? 0
+        self.followingCount = dto.followingCount ?? 0
+        self.totalEventsAttended = dto.ralliesAttended ?? 0
+    }
+
     var initial: String { String(name.prefix(1)) }
 }
 
