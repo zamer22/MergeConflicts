@@ -9,7 +9,6 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 class CreateUserBody(BaseModel):
-    id: str
     email: str
     username: str
     interests: Optional[list[str]] = []
@@ -23,9 +22,28 @@ class UpdateUserBody(BaseModel):
     avatar_url: Optional[str] = None
 
 
-@router.post("/")
-def create_user(body: CreateUserBody):
-    res = supabase.table("users").insert(body.model_dump()).execute()
+@router.post("/login")
+def login_or_create(body: CreateUserBody):
+    """Busca usuario por email; si no existe lo crea. Devuelve siempre el user."""
+    existing = supabase.table("users").select("*").eq("email", body.email).limit(1).execute()
+    if existing.data:
+        return existing.data[0]
+
+    import random, string
+    username = body.username
+    # Si el username ya existe, le agrega sufijo numérico
+    for _ in range(10):
+        taken = supabase.table("users").select("id").eq("username", username).limit(1).execute()
+        if not taken.data:
+            break
+        username = body.username + str(random.randint(10, 999))
+
+    res = supabase.table("users").insert({
+        "email": body.email,
+        "username": username,
+        "interests": body.interests or [],
+        "location_label": body.location_label,
+    }).execute()
     return res.data[0]
 
 

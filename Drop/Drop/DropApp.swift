@@ -9,6 +9,11 @@ import SwiftUI
 
 @main
 struct DropApp: App {
+    init() {
+        // Limpia cualquier userId guardado de sesiones anteriores que fallaron
+        UserDefaults.standard.removeObject(forKey: "dropUserId")
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

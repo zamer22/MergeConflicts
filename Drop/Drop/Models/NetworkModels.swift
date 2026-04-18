@@ -179,7 +179,6 @@ struct CancelBody: Codable {
 }
 
 struct CreateUserBody: Codable {
-    let id: String
     let email: String
     let username: String
     let interests: [String]
@@ -255,9 +254,9 @@ final class DropService {
 
     // MARK: Users
 
-    func createUser(id: String, email: String, username: String) async throws -> UserDTO {
-        return try await api.post("/users/", body: CreateUserBody(
-            id: id, email: email, username: username, interests: [], locationLabel: nil
+    func loginOrCreate(email: String, username: String) async throws -> UserDTO {
+        return try await api.post("/users/login", body: CreateUserBody(
+            email: email, username: username, interests: [], locationLabel: nil
         ))
     }
 

@@ -47,18 +47,10 @@ class AppState: ObservableObject {
         isLoggedIn = true
 
         Task { @MainActor in
-            if let savedId = currentUserId {
-                if let dto = try? await DropService.shared.fetchUser(id: savedId) {
-                    authState = .authenticated(User(from: dto))
-                }
-            } else {
-                let newId = UUID().uuidString.lowercased()
-                if let dto = try? await DropService.shared.createUser(id: newId, email: email, username: username) {
-                    UserDefaults.standard.set(newId, forKey: "dropUserId")
-                    authState = .authenticated(User(from: dto))
-                } else {
-                    UserDefaults.standard.set(newId, forKey: "dropUserId")
-                }
+            // Siempre usar loginOrCreate — crea o devuelve el usuario existente por email
+            if let dto = try? await DropService.shared.loginOrCreate(email: email, username: username) {
+                UserDefaults.standard.set(dto.id, forKey: "dropUserId")
+                authState = .authenticated(User(from: dto))
             }
             await loadEvents()
             await loadSaved()
@@ -68,6 +60,11 @@ class AppState: ObservableObject {
 
     func loginWithGoogle() {
         login(email: "demo@drop.app", password: "")
+    }
+
+    // Llamar una vez al arrancar para limpiar IDs corruptos
+    func clearCorruptedUserId() {
+        UserDefaults.standard.removeObject(forKey: "dropUserId")
     }
 
     func logout() {
